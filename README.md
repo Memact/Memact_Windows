@@ -1,137 +1,146 @@
-# Memact
+Memact
 
 Version: v0.1
 
-Memact is a private desktop memory engine for personal actions.
+Memact is a searchable memory of your activity.
 
-It continuously records local action events on your Windows machine, builds a local semantic memory index, and lets you ask natural-language questions such as:
+It quietly records what you do on your computer and lets you find it later.
 
+Instead of searching the internet again, you can search your own past actions.
+
+---
+
+How to think about Memact
+
+You do not remember files or tabs.
+You remember moments.
+
+Like:
+
+- that article you read last night
+- that video you watched
+- that thing you saw on Reddit
+
+Memact helps you find those moments again.
+
+---
+
+What you can ask
+
+Memact is built around one simple interaction:
+
+Ask Memact...
+
+You can ask things like:
+
+- Where did I see that?
 - What did I do yesterday evening?
+- What did I watch today?
 - When did I last use Chrome?
-- How much time did I spend on youtube.com today?
 - Did I look at the grocery order?
 
-Memact is designed around one interaction: `Ask Memact...`
+---
 
-## Product principles
+What Memact records
 
-- local only
+Memact does not track everything.
+
+It records changes in attention. In simple terms, what you were focused on.
+
+For example:
+
+- switching between apps
+- opening a new page
+- moving from one task to another
+
+It does not record keystrokes or anything invasive.
+
+---
+
+How it works
+
+capture activity -> store it locally -> search it later
+
+No folders.
+No tagging.
+No manual organization.
+
+---
+
+Principles
+
+- everything stays on your device
 - no cloud services
 - no external APIs
-- no remote model calls
-- append-only event history
-- semantic search over actions, not dashboards
+- no remote AI calls
+- append-only memory
+- search, not dashboards
 
-## Architecture
+---
 
-The current product flow is:
+Interface
 
-```text
-event capture
--> event store
--> local semantic embeddings
--> semantic + lexical retrieval
--> query engine
--> answer + supporting evidence
-```
+The app is minimal by design:
 
-### Event capture
-
-Memact records raw action events such as:
-
-- timestamp
-- application
-- window title
-- URL when available
-- interaction type
-- captured content text when available
-- browser tab titles and URLs when the local extension is enabled
-
-Events are appended to the local database and are not auto-mutated into sessions or groups.
-
-### Local memory engine
-
-The query engine uses local embeddings plus lexical retrieval to interpret open-ended questions.
-
-- If a local transformer model is available, Memact uses it
-- If not, Memact falls back to a deterministic local embedding path so the app remains private and functional
-
-## Interface
-
-The desktop app intentionally stays minimal:
-
-- `memact` wordmark
-- one large centered search field
-- dynamic suggestions from recent activity
+- one search box
+- suggestions from recent activity
 - one clear answer
-- optional supporting details
-- top-right menu for setup and privacy actions
+- optional details if you want more
 
-## Browser extension
+---
 
-Memact includes a local extension in `extension/memact` for Chromium-based browsers.
+Browser support
 
-When enabled, it sends the current window's tab data to the local Memact bridge at `http://127.0.0.1:38453`.
+Memact includes a local extension for Chromium-based browsers.
 
-No browser data is sent off-device.
+It captures:
 
-## Storage
+- current tab
+- page titles
+- URLs
 
-The local SQLite database lives at:
+All data stays on your device and is sent only to:
 
-`%USERPROFILE%\AppData\Local\memact\memact.db`
+http://127.0.0.1:38453
 
-## Dependencies
+---
+
+Storage
+
+Data is stored locally at:
+
+%USERPROFILE%\AppData\Local\memact\memact.db
+
+---
+
+Running Memact
+
+Requirements:
 
 - Python 3.11+
 - PyQt6
 - pywinauto
 - sentence-transformers
 
-Install with:
+Install:
 
-```powershell
 pip install -r requirements.txt
-```
 
-## Run
+Run:
 
-```powershell
 python main.py
-```
 
-## Release build (binary-only)
+---
 
-Build a local release bundle with encrypted bytecode:
+Notes
 
-```powershell
-scripts\build_release.ps1
-```
+- Windows-first prototype
+- fully local system
+- focused on remembering and finding your activity
+- not a workflow automation tool
 
-The output is placed in `dist\memact-release` and does not include `.py` sources.
+---
 
-## Local engine (compiled)
+License
 
-Build the compiled local engine:
-
-```powershell
-scripts\build_engine.ps1
-```
-
-Run it in a separate terminal:
-
-```powershell
-scripts\run_engine.ps1
-```
-
-The UI will use the engine automatically when it is running.
-
-## Notes
-
-- This is a Windows-first prototype.
-- The semantic engine is fully local.
-- Exact app restoration is no longer the main product promise; Memact is focused on remembering and answering questions about actions.
-
-## License
-
-Memact is proprietary and confidential. See `LICENSE` for details.
+Memact is proprietary and confidential. See LICENSE.
