@@ -25,12 +25,14 @@ class BrowserSetupDialog(QDialog):
         browsers: list[BrowserInstall],
         on_setup,
         is_browser_ready=None,
+        browser_status=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
-        self.browsers = browsers
         self.on_setup = on_setup
-        self.is_browser_ready = is_browser_ready or (lambda _browser: False)
+        ready_check = is_browser_ready or (lambda _browser: False)
+        self.browser_status = browser_status or (lambda browser: "ready" if ready_check(browser) else "setup")
+        self.browsers = [browser for browser in browsers if self.browser_status(browser) != "ready"]
         self.setModal(True)
         self.setWindowTitle("Memact browser setup")
         self.setMinimumWidth(560)
@@ -183,8 +185,16 @@ class BrowserSetupDialog(QDialog):
         steps_wrap.addWidget(self._step_card("3", "Choose Load unpacked and select extension/memact if needed."))
         panel_layout.addLayout(steps_wrap)
 
-        for browser in browsers:
-            panel_layout.addWidget(self._browser_tile(browser))
+        if self.browsers:
+            for browser in self.browsers:
+                tile = self._browser_tile(browser)
+                if tile is not None:
+                    panel_layout.addWidget(tile)
+        else:
+            empty = QLabel("All detected browsers are already connected to Memact.")
+            empty.setObjectName("BrowserMeta")
+            empty.setWordWrap(True)
+            panel_layout.addWidget(empty)
 
         footer = QHBoxLayout()
         footer.setSpacing(10)
@@ -240,14 +250,21 @@ class BrowserSetupDialog(QDialog):
         name = QLabel(browser.name)
         name.setObjectName("BrowserName")
         title_row.addWidget(name)
-        if self.is_browser_ready(browser):
+        status = self.browser_status(browser)
+        if status == "ready":
             ready = QLabel("Ready")
+            ready.setObjectName("ReadyBadge")
+            title_row.addWidget(ready)
+        elif status == "update":
+            ready = QLabel("Update")
             ready.setObjectName("ReadyBadge")
             title_row.addWidget(ready)
         title_row.addStretch(1)
 
-        if self.is_browser_ready(browser):
+        if status == "ready":
             meta_text = "Extension detected and connected to Memact."
+        elif status == "update":
+            meta_text = "Extension detected, but an update is available."
         elif browser.supported:
             meta_text = "Detected locally. Memact can guide setup."
         else:
@@ -265,7 +282,8 @@ class BrowserSetupDialog(QDialog):
         text_col.addWidget(meta)
         text_col.addWidget(url_label)
 
-        setup_button = QPushButton("Open setup")
+        setup_label = "Update" if status == "update" else "Open setup"
+        setup_button = QPushButton(setup_label)
         setup_button.setEnabled(browser.supported)
         setup_button.clicked.connect(
             lambda _checked=False, selected=browser: self._handle_setup(selected)

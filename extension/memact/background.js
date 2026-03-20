@@ -1,4 +1,5 @@
 const BRIDGE_URL = "http://127.0.0.1:38453/session";
+const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 
 function detectBrowserKey() {
   const userAgent = navigator.userAgent || "";
@@ -41,6 +42,7 @@ async function snapshotFocusedWindow() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         browser,
+        extensionVersion: EXTENSION_VERSION,
         windowId: currentWindow.id,
         tabs,
         activeContext

@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class BrowserSession:
     browser: str
+    extension_version: str | None
     current_title: str | None
     current_url: str | None
     tab_titles: list[str]
@@ -39,6 +40,7 @@ class BrowserStateStore:
 
     def update(self, payload: dict) -> None:
         browser = str(payload.get("browser", "")).lower().strip()
+        extension_version = str(payload.get("extensionVersion", "")).strip() or None
         tabs = payload.get("tabs") or []
         if not browser or not isinstance(tabs, list):
             return
@@ -78,6 +80,7 @@ class BrowserStateStore:
 
         session = BrowserSession(
             browser=browser,
+            extension_version=extension_version,
             current_title=current_title,
             current_url=current_url,
             tab_titles=tab_titles,
@@ -102,6 +105,11 @@ class BrowserStateStore:
     def has_session(self, browser: str) -> bool:
         with self._lock:
             return browser.lower().strip() in self._sessions
+
+    def extension_version(self, browser: str) -> str | None:
+        with self._lock:
+            session = self._sessions.get(browser.lower().strip())
+            return session.extension_version if session else None
 
 
 class _BridgeHandler(BaseHTTPRequestHandler):

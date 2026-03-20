@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import json
 import logging
 import threading
 from pathlib import Path
@@ -11,6 +12,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
     QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -20,6 +22,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QProgressBar,
     QPushButton,
+    QWidgetAction,
     QSpacerItem,
     QSizePolicy,
     QGridLayout,
@@ -275,6 +278,7 @@ class EvidenceCard(QFrame):
         if best_url and domain:
             link_button = QPushButton(_link_label(best_url))
             link_button.setObjectName("EvidenceLinkButton")
+            link_button.setCursor(Qt.CursorShape.PointingHandCursor)
             link_button.clicked.connect(lambda _checked=False, value=best_url: QDesktopServices.openUrl(QUrl(value)))
 
         if span.attention_cue:
@@ -506,6 +510,16 @@ class MainWindow(QMainWindow):
         self._hover_reset_timer.setInterval(50)
         self._hover_reset_timer.timeout.connect(self._clear_preview_if_idle)
 
+        self._loading_timer = QTimer(self)
+        self._loading_timer.setInterval(35)
+        self._loading_timer.timeout.connect(self._tick_loading)
+        self._loading_progress = 0
+
+        self._tray_hide_timer = QTimer(self)
+        self._tray_hide_timer.setSingleShot(True)
+        self._tray_hide_timer.setInterval(250)
+        self._tray_hide_timer.timeout.connect(self._hide_tray_menu_if_idle)
+
         self._build_ui()
         self._build_tray()
         self._build_menu()
@@ -555,14 +569,28 @@ class MainWindow(QMainWindow):
                 background: rgba(255, 255, 255, 0.32);
                 border-radius: 1px;
             }
+            QFrame#ResultsShadow {
+                background: qlineargradient(
+                    x1: 0, y1: 0,
+                    x2: 0, y2: 1,
+                    stop: 0 rgba(255, 255, 255, 0.14),
+                    stop: 1 rgba(255, 255, 255, 0.0)
+                );
+                border-radius: 0px;
+            }
             QProgressBar#LoadingBar {
-                background: rgba(255, 255, 255, 0.08);
+                background: qlineargradient(
+                    x1: 0, y1: 0,
+                    x2: 0, y2: 1,
+                    stop: 0 rgba(255, 255, 255, 0.14),
+                    stop: 1 rgba(255, 255, 255, 0.0)
+                );
                 border: none;
-                border-radius: 2px;
+                border-radius: 0px;
             }
             QProgressBar#LoadingBar::chunk {
-                background: #ffffff;
-                border-radius: 2px;
+                background: rgba(255, 255, 255, 0.8);
+                border-radius: 0px;
             }
             QLineEdit#SearchInput {
                 background: transparent;
@@ -833,6 +861,7 @@ class MainWindow(QMainWindow):
         self.back_button = QPushButton("\u2190")
         self.back_button.setObjectName("MenuButton")
         self.back_button.setFixedSize(menu_button_size, menu_button_size)
+        self.back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.back_button.clicked.connect(self._go_home)
         back_layout.addWidget(self.back_button, 0, Qt.AlignmentFlag.AlignCenter)
 
@@ -844,6 +873,7 @@ class MainWindow(QMainWindow):
         self.reload_button = QPushButton("\u21bb")
         self.reload_button.setObjectName("MenuButton")
         self.reload_button.setFixedSize(menu_button_size, menu_button_size)
+        self.reload_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.reload_button.clicked.connect(self._reload_query)
         reload_layout.addWidget(self.reload_button, 0, Qt.AlignmentFlag.AlignCenter)
 
@@ -886,6 +916,7 @@ class MainWindow(QMainWindow):
         self.results_menu_button = QPushButton("...")
         self.results_menu_button.setObjectName("MenuButton")
         self.results_menu_button.setFixedSize(menu_button_size, menu_button_size)
+        self.results_menu_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.results_menu_button.clicked.connect(self._show_menu)
         results_menu_layout.addWidget(self.results_menu_button, 0, Qt.AlignmentFlag.AlignCenter)
         self.results_right_controls = QWidget()
@@ -927,6 +958,7 @@ class MainWindow(QMainWindow):
         self.menu_button = QPushButton("...")
         self.menu_button.setObjectName("MenuButton")
         self.menu_button.setFixedSize(menu_button_size, menu_button_size)
+        self.menu_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.menu_button.clicked.connect(self._show_menu)
         menu_layout.addWidget(self.menu_button, 0, Qt.AlignmentFlag.AlignCenter)
         self.home_menu_slot = QWidget()
@@ -1061,6 +1093,7 @@ class MainWindow(QMainWindow):
         self.answer_summary.setWordWrap(True)
         self.details_button = QPushButton("View details")
         self.details_button.setObjectName("DetailsButton")
+        self.details_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.details_button.clicked.connect(self._toggle_details)
 
         self.refine_heading = QLabel("REFINE SEARCH")
@@ -1098,33 +1131,23 @@ class MainWindow(QMainWindow):
         self.loading_bar = QProgressBar()
         self.loading_bar.setObjectName("LoadingBar")
         self.loading_bar.setTextVisible(False)
-        self.loading_bar.setRange(0, 0)
-        self.loading_bar.setFixedHeight(3)
+        self.loading_bar.setRange(0, 100)
+        self.loading_bar.setFixedHeight(4)
         self.loading_bar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.loading_bar.hide()
 
-        self.results_separator = QWidget()
+        self.results_separator = QFrame()
+        self.results_separator.setObjectName("ResultsShadow")
+        self.results_separator.setFixedHeight(4)
         self.results_separator.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        separator_layout = QVBoxLayout(self.results_separator)
-        separator_layout.setContentsMargins(0, 8, 0, 10)
-        separator_layout.setSpacing(0)
-        self.results_section_divider = QFrame()
-        self.results_section_divider.setObjectName("ResultsDivider")
-        self.results_section_divider.setFixedHeight(2)
-        self.results_section_divider.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed,
-        )
-        separator_layout.addWidget(self.results_section_divider)
         self.results_separator.hide()
 
         center.addSpacing(0)
         center.addWidget(self.header_container, 0, Qt.AlignmentFlag.AlignCenter)
-        center.addWidget(self.results_separator, 0, Qt.AlignmentFlag.AlignCenter)
-        center.addSpacing(16)
+        center.addSpacing(8)
         center.addWidget(self.answer_card, 0, Qt.AlignmentFlag.AlignCenter)
 
         layout.addLayout(center)
@@ -1135,16 +1158,19 @@ class MainWindow(QMainWindow):
             QSizePolicy.Policy.Expanding,
         )
         layout.addItem(self.bottom_spacer)
-        layout.addWidget(self.loading_bar, 0, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.status_text, 0, Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
 
         self.setCentralWidget(root)
+        self.loading_bar.setParent(self.root)
+        self.results_separator.setParent(self.root)
         self.suggestion_dock.setParent(self.root)
         self.answer_card.hide()
         self.results_separator.hide()
         self.suggestion_dock.hide()
         self._apply_responsive_sizes()
         self._position_suggestion_dock()
+        self._position_results_shadow()
+        self._position_loading_bar()
 
     def _build_tray(self) -> None:
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -1157,13 +1183,14 @@ class MainWindow(QMainWindow):
         tray_menu.setFont(body_font(12))
         tray_menu.setStyleSheet(self._menu_stylesheet())
         tray_menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self._apply_menu_shadow(tray_menu)
+        self._enable_menu_cursor(tray_menu)
+        self._configure_tray_menu(tray_menu)
         show_action = QAction("Show", self)
         show_action.triggered.connect(self.show_window)
-        quit_action = QAction("Quit", self)
-        quit_action.triggered.connect(self.quit_app)
         tray_menu.addAction(show_action)
         tray_menu.addSeparator()
-        tray_menu.addAction(quit_action)
+        self._add_quit_action(tray_menu)
         # Don't use setContextMenu() on Windows; it can force a native menu with square corners
         # and OS-controlled placement (often expanding into the taskbar). We'll position it ourselves.
         self.tray_menu = tray_menu
@@ -1174,13 +1201,14 @@ class MainWindow(QMainWindow):
         self.overflow_menu = QMenu(self)
         self.overflow_menu.setStyleSheet(self._menu_stylesheet())
         self.overflow_menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self._apply_menu_shadow(self.overflow_menu)
+        self._enable_menu_cursor(self.overflow_menu)
         install_action = self.overflow_menu.addAction("Install Browser Extension")
         install_action.triggered.connect(self._open_browser_setup_from_menu)
         privacy_action = self.overflow_menu.addAction("Privacy Notice")
         privacy_action.triggered.connect(self._show_privacy_dialog)
         self.overflow_menu.addSeparator()
-        quit_action = self.overflow_menu.addAction("Quit")
-        quit_action.triggered.connect(self.quit_app)
+        self._add_quit_action(self.overflow_menu)
 
     def _show_loading_state(self) -> None:
         self.status_text.setText("Starting your local memory engine...")
@@ -1255,12 +1283,50 @@ class MainWindow(QMainWindow):
         if not hasattr(self, "loading_bar"):
             return
         if active:
-            self.loading_bar.setRange(0, 0)
-            self.loading_bar.show()
-        else:
-            self.loading_bar.setRange(0, 1)
+            self._loading_progress = 0
+            self.loading_bar.setRange(0, 100)
             self.loading_bar.setValue(0)
-            self.loading_bar.hide()
+            self.loading_bar.show()
+            self._position_loading_bar()
+            self.loading_bar.raise_()
+            if not self._loading_timer.isActive():
+                self._loading_timer.start()
+        else:
+            if self._loading_timer.isActive():
+                self._loading_timer.stop()
+            self.loading_bar.setRange(0, 100)
+            self.loading_bar.setValue(100)
+            QTimer.singleShot(140, self.loading_bar.hide)
+
+    def _tick_loading(self) -> None:
+        if not self.loading_bar.isVisible():
+            return
+        value = int(self.loading_bar.value())
+        if value < 70:
+            value += 3
+        elif value < 90:
+            value += 2
+        elif value < 95:
+            value += 1
+        else:
+            value = 95
+        self.loading_bar.setValue(value)
+
+    def _position_loading_bar(self) -> None:
+        if not hasattr(self, "loading_bar"):
+            return
+        height = self.loading_bar.height()
+        width = self.root.width()
+        self.loading_bar.setGeometry(0, self.root.height() - height, width, height)
+
+    def _position_results_shadow(self) -> None:
+        if not hasattr(self, "results_separator"):
+            return
+        if not self.results_separator.isVisible() or not self._results_mode:
+            return
+        anchor = self.results_header.mapTo(self.root, QPoint(0, 0))
+        y = anchor.y() + self.results_header.height() + 12
+        self.results_separator.setGeometry(0, y, self.root.width(), self.results_separator.height())
 
     def _handle_search_focus(self) -> None:
         self._set_search_active(True)
@@ -1340,7 +1406,49 @@ class MainWindow(QMainWindow):
                 background: rgba(255, 255, 255, 0.2);
                 margin: 8px 10px;
             }
+            QPushButton#MenuDangerButton {
+                background: transparent;
+                color: #ffffff;
+                border: none;
+                border-radius: 12px;
+                padding: 10px 18px;
+                text-align: left;
+            }
+            QPushButton#MenuDangerButton:hover {
+                background: rgba(255, 86, 86, 0.26);
+                border: none;
+            }
         """
+
+    def _apply_menu_shadow(self, menu: QMenu) -> None:
+        shadow = QGraphicsDropShadowEffect(menu)
+        shadow.setBlurRadius(26)
+        shadow.setOffset(0, 8)
+        shadow.setColor(QColor(255, 255, 255, 36))
+        menu.setGraphicsEffect(shadow)
+
+    def _configure_tray_menu(self, menu: QMenu) -> None:
+        menu.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        flags = menu.windowFlags()
+        flags |= Qt.WindowType.Popup
+        flags |= Qt.WindowType.FramelessWindowHint
+        flags |= Qt.WindowType.WindowStaysOnTopHint
+        menu.setWindowFlags(flags)
+        menu.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+
+    def _enable_menu_cursor(self, menu: QMenu) -> None:
+        menu.setMouseTracking(True)
+        menu.installEventFilter(self)
+
+    def _add_quit_action(self, menu: QMenu) -> None:
+        quit_action = QWidgetAction(menu)
+        quit_button = QPushButton("Quit")
+        quit_button.setObjectName("MenuDangerButton")
+        quit_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        quit_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        quit_button.clicked.connect(self.quit_app)
+        quit_action.setDefaultWidget(quit_button)
+        menu.addAction(quit_action)
 
     def _render_suggestions(self, suggestions: list[SearchSuggestion], *, heading: str) -> None:
         self._visible_suggestion_cards = []
@@ -1452,10 +1560,6 @@ class MainWindow(QMainWindow):
         self.suggestion_dock.setMaximumWidth(home_width)
         self.suggestion_dock.setFixedWidth(home_width)
         self.answer_card.setFixedWidth(answer_width)
-        if hasattr(self, "results_separator"):
-            self.results_separator.setFixedWidth(answer_width)
-        if hasattr(self, "loading_bar"):
-            self.loading_bar.setFixedWidth(answer_width)
 
         self.results_header_layout.setColumnMinimumWidth(0, left_width)
         self.results_header_layout.setColumnMinimumWidth(2, right_width)
@@ -1465,8 +1569,8 @@ class MainWindow(QMainWindow):
         self.header_container.updateGeometry()
         self.answer_card.updateGeometry()
         self.results_header.updateGeometry()
-        if hasattr(self, "results_separator"):
-            self.results_separator.updateGeometry()
+        self._position_results_shadow()
+        self._position_loading_bar()
         if self.suggestion_dock.isVisible():
             QTimer.singleShot(0, self._position_suggestion_dock)
 
@@ -1481,6 +1585,7 @@ class MainWindow(QMainWindow):
             self.home_menu_slot.hide()
             if hasattr(self, "results_separator"):
                 self.results_separator.show()
+                self._position_results_shadow()
             if self.results_header_layout.indexOf(self.header_container) == -1:
                 self.results_header_layout.addWidget(
                     self.header_container,
@@ -1869,6 +1974,7 @@ class MainWindow(QMainWindow):
         for query in queries:
             button = QPushButton(query)
             button.setObjectName("RefineButton")
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.clicked.connect(lambda _checked=False, value=query: self._apply_suggestion(value))
             self.refine_row.addWidget(button)
         self.refine_row.addStretch(1)
@@ -1909,6 +2015,8 @@ class MainWindow(QMainWindow):
         self.root.layout().invalidate()
         self.root.layout().activate()
         QTimer.singleShot(0, self._position_suggestion_dock)
+        self._position_results_shadow()
+        self._position_loading_bar()
 
     def _show_menu(self) -> None:
         anchor = self.results_menu_button if self._results_mode else self.menu_button
@@ -1956,6 +2064,7 @@ class MainWindow(QMainWindow):
         x = max(available.left(), min(x, available.right() - menu_size.width()))
         y = max(available.top(), min(y, available.bottom() - menu_size.height()))
         self.tray_menu.popup(QPoint(x, y))
+        self.tray_menu.raise_()
 
     def show_window(self) -> None:
         self.show()
@@ -1969,14 +2078,41 @@ class MainWindow(QMainWindow):
             self._native_theme_applied = True
         self._apply_responsive_sizes()
         self._position_suggestion_dock()
+        self._position_results_shadow()
+        self._position_loading_bar()
 
     def changeEvent(self, event) -> None:  # noqa: N802
         if event.type() == QEvent.Type.WindowStateChange:
             self._apply_responsive_sizes()
             self._position_suggestion_dock()
+            self._position_results_shadow()
+            self._position_loading_bar()
             self.root.layout().invalidate()
             self.root.layout().activate()
         super().changeEvent(event)
+
+    def eventFilter(self, obj, event) -> bool:  # noqa: N802
+        if isinstance(obj, QMenu):
+            if event.type() in (QEvent.Type.HoverMove, QEvent.Type.MouseMove):
+                action = obj.actionAt(event.pos())
+                if action and not action.isSeparator():
+                    obj.setCursor(Qt.CursorShape.PointingHandCursor)
+                else:
+                    obj.setCursor(Qt.CursorShape.ArrowCursor)
+            elif event.type() == QEvent.Type.Leave:
+                obj.setCursor(Qt.CursorShape.ArrowCursor)
+                if getattr(self, "tray_menu", None) is obj:
+                    self._tray_hide_timer.start()
+            elif event.type() == QEvent.Type.Enter:
+                if getattr(self, "tray_menu", None) is obj and self._tray_hide_timer.isActive():
+                    self._tray_hide_timer.stop()
+        return super().eventFilter(obj, event)
+
+    def _hide_tray_menu_if_idle(self) -> None:
+        if getattr(self, "tray_menu", None) is None:
+            return
+        if self.tray_menu.isVisible() and not self.tray_menu.underMouse():
+            self.tray_menu.hide()
 
     def quit_app(self) -> None:
         self._quitting = True
@@ -2013,10 +2149,14 @@ class MainWindow(QMainWindow):
         save_settings(self.settings)
         if not browsers:
             return
+        visible = [browser for browser in browsers if self._browser_extension_status(browser) != "ready"]
+        if not visible:
+            return
         dialog = BrowserSetupDialog(
-            browsers=browsers,
+            browsers=visible,
             on_setup=self._run_browser_setup,
             is_browser_ready=self._is_browser_extension_ready,
+            browser_status=self._browser_extension_status,
             parent=self,
         )
         dialog.exec()
@@ -2026,10 +2166,15 @@ class MainWindow(QMainWindow):
         if not browsers:
             self._show_info_dialog("Memact", "No supported browsers were detected on this PC.")
             return
+        visible = [browser for browser in browsers if self._browser_extension_status(browser) != "ready"]
+        if not visible:
+            self._show_info_dialog("Memact", "All detected browsers are already connected to Memact.")
+            return
         dialog = BrowserSetupDialog(
-            browsers=browsers,
+            browsers=visible,
             on_setup=self._run_browser_setup,
             is_browser_ready=self._is_browser_extension_ready,
+            browser_status=self._browser_extension_status,
             parent=self,
         )
         dialog.exec()
@@ -2042,6 +2187,45 @@ class MainWindow(QMainWindow):
 
     def _is_browser_extension_ready(self, browser) -> bool:
         return self.browser_state_store.has_session(browser.key)
+
+    def _current_extension_version(self) -> str | None:
+        cached = getattr(self, "_extension_version_cache", None)
+        if cached is not None:
+            return cached
+        version = None
+        try:
+            manifest_path = EXTENSION_DIR / "manifest.json"
+            if manifest_path.exists():
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+                version = str(payload.get("version", "")).strip() or None
+        except Exception:
+            version = None
+        self._extension_version_cache = version
+        return version
+
+    def _version_tuple(self, value: str | None) -> tuple[int, ...]:
+        if not value:
+            return tuple()
+        parts = []
+        for chunk in str(value).split("."):
+            digits = "".join(ch for ch in chunk if ch.isdigit())
+            if digits:
+                parts.append(int(digits))
+        return tuple(parts)
+
+    def _browser_extension_status(self, browser) -> str:
+        session = self.browser_state_store.get(browser.key)
+        if session is None:
+            return "setup"
+        current = self._current_extension_version()
+        session_version = session.extension_version
+        if current and session_version:
+            if self._version_tuple(current) == self._version_tuple(session_version):
+                return "ready"
+            return "update"
+        if session_version:
+            return "update"
+        return "update"
 
     def _show_privacy_dialog(self) -> None:
         dialog = GlassInfoDialog(
