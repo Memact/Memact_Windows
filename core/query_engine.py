@@ -2365,6 +2365,12 @@ def dynamic_suggestions(limit: int = 4) -> list[SearchSuggestion]:
     if not events:
         return [
             SearchSuggestion(
+                title="Where did I see that message about delivery?",
+                subtitle="Find a half-remembered detail from any page or app.",
+                completion="Where did I see that message about delivery?",
+                category="Suggested",
+            ),
+            SearchSuggestion(
                 title="What was I doing today?",
                 subtitle="Broad overview of your latest activity.",
                 completion="What was I doing today?",
@@ -2414,6 +2420,7 @@ def dynamic_suggestions(limit: int = 4) -> list[SearchSuggestion]:
             )
         )
     for prompt, subtitle in (
+        ("Where did I read about that refund policy?", "Find a half-remembered concept or detail."),
         ("What was I doing yesterday evening?", "Look at a recent time slice."),
         ("What did I work on this week?", "Summarize broader work patterns."),
         ("Did I open GitHub today?", "Ask a direct yes or no question."),
@@ -2496,6 +2503,26 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
                 completion="What did I do yesterday evening?",
                 category="Explore",
             ),
+            SearchSuggestion(
+                title="What was that page about pricing tiers?",
+                subtitle="Recover the meaning of something you half remember.",
+                completion="What was that page about pricing tiers?",
+                category="Recall",
+            ),
+        ],
+        "where": [
+            SearchSuggestion(
+                title="Where did I see that thing about delivery fees?",
+                subtitle="Search across pages, chats, and threads.",
+                completion="Where did I see that thing about delivery fees?",
+                category="Recall",
+            ),
+            SearchSuggestion(
+                title="Where did I read about resetting my password?",
+                subtitle="Find the exact page or message from a remembered detail.",
+                completion="Where did I read about resetting my password?",
+                category="Recall",
+            ),
         ],
         "when": [
             SearchSuggestion(
@@ -2523,6 +2550,20 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
                 subtitle="Measure time spent in a work session.",
                 completion="How long was I coding today?",
                 category="Time analysis",
+            ),
+        ],
+        "remember": [
+            SearchSuggestion(
+                title="I remember something about delivery windows",
+                subtitle="Search for a half-remembered concept across recent pages and apps.",
+                completion="I remember something about delivery windows",
+                category="Recall",
+            ),
+            SearchSuggestion(
+                title="I remember a message about account recovery",
+                subtitle="Look for a remembered phrase from chat, docs, or the web.",
+                completion="I remember a message about account recovery",
+                category="Recall",
             ),
         ],
         "did": [
@@ -2572,7 +2613,7 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
     for candidate in candidates:
         if candidate.completion.casefold() in seen:
             continue
-        if not lower.startswith(("what", "when", "how", "did", "which")) and lower not in candidate.completion.lower():
+        if not lower.startswith(("what", "where", "when", "how", "did", "which", "remember")) and lower not in candidate.completion.lower():
             continue
         deduped.append(candidate)
         seen.add(candidate.completion.casefold())

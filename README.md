@@ -1,6 +1,6 @@
 **Memact**
 
-**Version** `v0.2`
+**Version** `v0.4`
 
 Memact is a searchable memory of your activity.
 It quietly records what you do on your computer and lets you find it later.
@@ -15,9 +15,10 @@ You remember moments.
 
 Like:
 
-- that article you read last night
+- that docs page explaining a thing
+- that message you saw in chat
 - that video you watched
-- that thing you saw on Reddit
+- that thing you saw in a thread or forum
 
 Memact helps you find those moments again.
 
@@ -32,6 +33,8 @@ Ask Memact...
 You can ask things like:
 
 - Where did I see that?
+- Where did I read about delivery fees?
+- What was that message about resetting my password?
 - What did I do yesterday evening?
 - What did I watch today?
 - When did I last use Chrome?
