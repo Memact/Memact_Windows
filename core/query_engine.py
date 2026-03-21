@@ -605,6 +605,62 @@ def _meaningful_tokens(text: str) -> list[str]:
     return [token for token in tokenize(text) if token not in _STOP_WORDS]
 
 
+def _normalize_suggestion_topic(value: str | None, *, max_len: int = 56) -> str | None:
+    text = re.sub(r"\s+", " ", str(value or "")).strip(" -|:.,!?")
+    if len(text) < 4:
+        return None
+    if re.fullmatch(r"[a-z0-9.-]+\.[a-z]{2,}", text.casefold()):
+        return None
+    return text[:max_len].strip()
+
+
+def _event_suggestion_topics(event: Event) -> list[str]:
+    topics: list[str] = []
+    seen: set[str] = set()
+    for phrase in event.keyphrases:
+        normalized = _normalize_suggestion_topic(phrase)
+        if not normalized:
+            continue
+        key = normalized.casefold()
+        if key in seen:
+            continue
+        topics.append(normalized)
+        seen.add(key)
+        if len(topics) >= 3:
+            return topics
+    source_text = (event.content_text or event.window_title or "").strip()
+    tokens = [token for token in _meaningful_tokens(source_text) if len(token) >= 4]
+    for size in (3, 2, 1):
+        if len(tokens) < size:
+            continue
+        normalized = _normalize_suggestion_topic(" ".join(tokens[:size]))
+        if not normalized:
+            continue
+        key = normalized.casefold()
+        if key in seen:
+            continue
+        topics.append(normalized)
+        seen.add(key)
+        if len(topics) >= 3:
+            break
+    return topics
+
+
+def _recent_recall_topics(events: list[Event], *, limit: int = 4) -> list[str]:
+    topics: list[str] = []
+    seen: set[str] = set()
+    for event in events:
+        for topic in _event_suggestion_topics(event):
+            key = topic.casefold()
+            if key in seen:
+                continue
+            topics.append(topic)
+            seen.add(key)
+            if len(topics) >= limit:
+                return topics
+    return topics
+
+
 def _skill_filters(skill: Skill | None) -> set[str]:
     if not skill:
         return set()
@@ -2362,14 +2418,9 @@ def answer_query(query: str) -> QueryAnswer:
 
 def dynamic_suggestions(limit: int = 4) -> list[SearchSuggestion]:
     events = list_recent_events(limit=120)
+    recall_topics = _recent_recall_topics(events, limit=3)
     if not events:
         return [
-            SearchSuggestion(
-                title="Where did I see that message about delivery?",
-                subtitle="Find a half-remembered detail from any page or app.",
-                completion="Where did I see that message about delivery?",
-                category="Suggested",
-            ),
             SearchSuggestion(
                 title="What was I doing today?",
                 subtitle="Broad overview of your latest activity.",
@@ -2399,6 +2450,17 @@ def dynamic_suggestions(limit: int = 4) -> list[SearchSuggestion]:
             domains[domain] += 1
 
     suggestions: list[SearchSuggestion] = []
+    if recall_topics:
+        topic = recall_topics[0]
+        prompt = f"Where did I read about {topic}?"
+        suggestions.append(
+            SearchSuggestion(
+                title=prompt,
+                subtitle="Find a half-remembered concept from recent pages or apps.",
+                completion=prompt,
+                category="Recall",
+            )
+        )
     if domains:
         prompt = f"How much time did I spend on {domains.most_common(1)[0][0]} today?"
         suggestions.append(
@@ -2420,7 +2482,6 @@ def dynamic_suggestions(limit: int = 4) -> list[SearchSuggestion]:
             )
         )
     for prompt, subtitle in (
-        ("Where did I read about that refund policy?", "Find a half-remembered concept or detail."),
         ("What was I doing yesterday evening?", "Look at a recent time slice."),
         ("What did I work on this week?", "Summarize broader work patterns."),
         ("Did I open GitHub today?", "Ask a direct yes or no question."),
@@ -2453,15 +2514,22 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
     lower = typed.lower()
     lexical = lexical_candidates(typed, limit=32)
     pool = lexical or list_recent_events(limit=80)
+    token_matches = _meaningful_tokens(lower)
 
     entity_counts = Counter[str]()
     for event in pool:
         for label in (_domain(event.url), _friendly_app_name(event.application), _event_label(event)):
             if label and len(label.strip()) >= 3:
                 entity_counts[label.strip()] += 1
+    recall_topics = _recent_recall_topics(pool, limit=6)
+    if token_matches:
+        matched_topics = [
+            topic for topic in recall_topics if any(token in topic.casefold() for token in token_matches)
+        ]
+        if matched_topics:
+            recall_topics = matched_topics
 
     entity_suggestions: list[SearchSuggestion] = []
-    token_matches = _meaningful_tokens(lower)
     for label, _count in entity_counts.most_common(8):
         label_lower = label.lower()
         if token_matches and not any(token in label_lower for token in token_matches):
@@ -2489,6 +2557,34 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
             ]
         )
 
+    recall_what_suggestions = [
+        SearchSuggestion(
+            title=f"What was that page or message about {topic}?",
+            subtitle="Recover the meaning of something you half remember.",
+            completion=f"What was that page or message about {topic}?",
+            category="Recall",
+        )
+        for topic in recall_topics[:2]
+    ]
+    recall_where_suggestions = [
+        SearchSuggestion(
+            title=f"Where did I read about {topic}?",
+            subtitle="Search across recent pages, chats, and threads.",
+            completion=f"Where did I read about {topic}?",
+            category="Recall",
+        )
+        for topic in recall_topics[:2]
+    ]
+    recall_remember_suggestions = [
+        SearchSuggestion(
+            title=f"I remember something about {topic}",
+            subtitle="Search for a half-remembered concept across recent activity.",
+            completion=f"I remember something about {topic}",
+            category="Recall",
+        )
+        for topic in recall_topics[:2]
+    ]
+
     intent_map = {
         "what": [
             SearchSuggestion(
@@ -2503,27 +2599,9 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
                 completion="What did I do yesterday evening?",
                 category="Explore",
             ),
-            SearchSuggestion(
-                title="What was that page about pricing tiers?",
-                subtitle="Recover the meaning of something you half remember.",
-                completion="What was that page about pricing tiers?",
-                category="Recall",
-            ),
+            *recall_what_suggestions,
         ],
-        "where": [
-            SearchSuggestion(
-                title="Where did I see that thing about delivery fees?",
-                subtitle="Search across pages, chats, and threads.",
-                completion="Where did I see that thing about delivery fees?",
-                category="Recall",
-            ),
-            SearchSuggestion(
-                title="Where did I read about resetting my password?",
-                subtitle="Find the exact page or message from a remembered detail.",
-                completion="Where did I read about resetting my password?",
-                category="Recall",
-            ),
-        ],
+        "where": recall_where_suggestions,
         "when": [
             SearchSuggestion(
                 title="When did I last use Chrome?",
@@ -2552,20 +2630,7 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
                 category="Time analysis",
             ),
         ],
-        "remember": [
-            SearchSuggestion(
-                title="I remember something about delivery windows",
-                subtitle="Search for a half-remembered concept across recent pages and apps.",
-                completion="I remember something about delivery windows",
-                category="Recall",
-            ),
-            SearchSuggestion(
-                title="I remember a message about account recovery",
-                subtitle="Look for a remembered phrase from chat, docs, or the web.",
-                completion="I remember a message about account recovery",
-                category="Recall",
-            ),
-        ],
+        "remember": recall_remember_suggestions,
         "did": [
             SearchSuggestion(
                 title="Did I open GitHub today?",
