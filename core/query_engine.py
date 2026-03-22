@@ -1434,6 +1434,10 @@ def _time_window_for_query(query: str) -> tuple[datetime | None, datetime | None
         start = datetime.combine(start_day, time.min)
         end = datetime.combine(today, time.max)
         label = "this week"
+    elif "recently" in text:
+        start = datetime.combine(today - timedelta(days=3), time.min)
+        end = datetime.combine(today, time.max)
+        label = "recently"
     else:
         day = None
         if "yesterday" in text:

@@ -10,6 +10,8 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     chromadb = None
 
+from core.semantic import embed_text
+
 
 _COLLECTION_NAME = "memact_events"
 
@@ -25,7 +27,13 @@ def _persist_directory() -> Path:
 def _client():
     if chromadb is None:
         raise RuntimeError("ChromaDB is not available.")
-    return chromadb.PersistentClient(path=str(_persist_directory()))
+    try:
+        return chromadb.PersistentClient(
+            path=str(_persist_directory()),
+            settings=chromadb.Settings(anonymized_telemetry=False),
+        )
+    except Exception:
+        return chromadb.PersistentClient(path=str(_persist_directory()))
 
 
 def _collection():
@@ -49,12 +57,17 @@ def _to_epoch(value: str) -> int:
         return 0
 
 
+def _target_embedding_dim() -> int:
+    return len(embed_text("memact vector probe"))
+
+
 def upsert_events(events: Iterable) -> None:
     if chromadb is None:
         return
     items = list(events)
     if not items:
         return
+    target_dim = _target_embedding_dim()
     ids: list[str] = []
     embeddings: list[list[float]] = []
     metadatas: list[dict[str, object]] = []
@@ -65,6 +78,10 @@ def upsert_events(events: Iterable) -> None:
         try:
             embedding = list(map(float, json.loads(event.embedding_json)))
         except Exception:
+            embedding = []
+        if len(embedding) != target_dim:
+            embedding = embed_text(getattr(event, "searchable_text", "") or "")
+        if len(embedding) != target_dim:
             continue
         event_id = int(getattr(event, "id"))
         occurred_at = getattr(event, "occurred_at", "") or ""

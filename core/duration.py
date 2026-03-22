@@ -25,6 +25,9 @@ def resolve_time_range(time_text: str | None) -> tuple[str, str]:
     elif "last week" in text:
         end = _midnight(now)
         start = end - timedelta(days=7)
+    elif "recently" in text:
+        end = _midnight(now + timedelta(days=1))
+        start = _midnight(now - timedelta(days=3))
     elif "last month" in text:
         end = _midnight(now.replace(day=1))
         prev_month = end - timedelta(days=1)

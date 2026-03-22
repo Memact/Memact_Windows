@@ -18,6 +18,7 @@ _TIME_HINTS = {
     "last month",
     "this week",
     "earlier today",
+    "recently",
     "around",
 }
 
@@ -32,6 +33,26 @@ _APP_VERBS = {
     "search",
     "play",
     "open",
+}
+
+_CONTENT_MARKERS = {
+    "about",
+    "article",
+    "articles",
+    "page",
+    "pages",
+    "post",
+    "posts",
+    "message",
+    "messages",
+    "thread",
+    "threads",
+    "topic",
+    "topics",
+    "authentication",
+    "python",
+    "async",
+    "jwt",
 }
 
 _ACTIVITY_LEMMA_MAP = {
@@ -127,6 +148,21 @@ def _normalize_app(text: str) -> str:
     return cleaned.title()
 
 
+def _looks_like_content_phrase(text: str | None) -> bool:
+    cleaned = re.sub(r"\s+", " ", str(text or "").strip(" .,:;!?\"'"))
+    if not cleaned:
+        return False
+    lowered = cleaned.casefold()
+    if " about " in f" {lowered} ":
+        return True
+    tokens = tokenize(lowered)
+    if not tokens:
+        return False
+    if len(tokens) >= 2 and any(token in _CONTENT_MARKERS for token in tokens):
+        return True
+    return False
+
+
 def _extract_app_from_doc(doc) -> str | None:
     if doc is None:
         return None
@@ -142,11 +178,16 @@ def _extract_app_from_doc(doc) -> str | None:
             elif candidate.pos_ in {"PROPN", "NOUN", "ADJ"}:
                 collected.append(candidate.text)
         if collected:
-            return _normalize_app(" ".join(collected))
+            candidate_text = _normalize_app(" ".join(collected))
+            if _looks_like_content_phrase(candidate_text):
+                continue
+            return candidate_text
     entities = [ent.text for ent in doc.ents if ent.label_ in {"ORG", "PRODUCT", "WORK_OF_ART"}]
     if entities:
         entities.sort(key=len, reverse=True)
-        return _normalize_app(entities[0])
+        candidate_text = _normalize_app(entities[0])
+        if not _looks_like_content_phrase(candidate_text):
+            return candidate_text
     return None
 
 
@@ -157,7 +198,10 @@ def _extract_app_from_regex(query: str) -> str | None:
     )
     if not match:
         return None
-    return _normalize_app(match.group(1))
+    candidate_text = _normalize_app(match.group(1))
+    if _looks_like_content_phrase(candidate_text):
+        return None
+    return candidate_text
 
 
 def _extract_time_text(query: str, doc) -> str | None:

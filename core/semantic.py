@@ -63,32 +63,30 @@ def _hash_embedding(text: str) -> list[float]:
 
 @lru_cache(maxsize=1)
 def _transformer_backend():
-    if not _has_local_transformer_model(_LOCAL_MODEL_NAME):
-        return None
     try:
         from sentence_transformers import SentenceTransformer  # type: ignore
 
-        model = SentenceTransformer(
-            _LOCAL_MODEL_NAME,
-            local_files_only=True,
-        )
-        return model
+        if _has_local_transformer_model(_LOCAL_MODEL_NAME):
+            return SentenceTransformer(
+                _LOCAL_MODEL_NAME,
+                local_files_only=True,
+            )
+        return SentenceTransformer(_LOCAL_MODEL_NAME)
     except Exception:
         return None
 
 
 @lru_cache(maxsize=1)
 def _reranker_backend():
-    if not _has_local_transformer_model(_LOCAL_RERANKER_MODEL_NAME):
-        return None
     try:
         from sentence_transformers import CrossEncoder  # type: ignore
 
-        model = CrossEncoder(
-            _LOCAL_RERANKER_MODEL_NAME,
-            local_files_only=True,
-        )
-        return model
+        if _has_local_transformer_model(_LOCAL_RERANKER_MODEL_NAME):
+            return CrossEncoder(
+                _LOCAL_RERANKER_MODEL_NAME,
+                local_files_only=True,
+            )
+        return CrossEncoder(_LOCAL_RERANKER_MODEL_NAME)
     except Exception:
         return None
 
