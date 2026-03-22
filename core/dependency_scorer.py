@@ -12,17 +12,17 @@ from core.semantic import cosine_similarity, embed_text
 
 logger = logging.getLogger(__name__)
 
-_REFERENCE_THRESHOLD = 0.18
-_RECENCY_HALFLIFE_DAYS = 14.0
+_REFERENCE_THRESHOLD = 0.43
+_PASSIVE_INTERACTIONS = {
+    "heartbeat",
+    "scrolling",
+    "typing",
+    "legacy_heartbeat",
+}
 
 
 def _parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value)
-
-
-def _recency_decay(value: str) -> float:
-    days_since = max((datetime.now() - _parse_timestamp(value)).total_seconds() / 86400.0, 0.0)
-    return math.exp(-days_since / _RECENCY_HALFLIFE_DAYS)
 
 
 def _float_vector(raw: str | list[float] | None) -> list[float]:
@@ -67,6 +67,7 @@ def score_event_dependencies(
                     es.session_id,
                     es.position,
                     e.occurred_at,
+                    e.interaction_type,
                     e.searchable_text,
                     e.embedding_json
                 FROM event_sessions es
@@ -111,12 +112,18 @@ def score_event_dependencies(
                 for target_vector in target_embeddings.get(session_id, []):
                     if cosine_similarity(event_vector, target_vector) >= _REFERENCE_THRESHOLD:
                         reference_count += 1
-                recency_score = _recency_decay(str(row["occurred_at"]))
-                dependency_score = (
-                    (float(outbound_counts.get(session_id, 0)) * 2.0)
-                    + (float(reference_count) * 1.0)
-                    + (recency_score * 0.5)
-                )
+                interaction_type = str(row["interaction_type"] or "")
+                is_passive = interaction_type in _PASSIVE_INTERACTIONS
+                if is_passive:
+                    dependency_score = 0.0
+                else:
+                    position = float(row["position"] or 0.5)
+                    position_weight = max(0.0, 1.0 - position)
+                    foundation_weight = max(0.0, 1.0 - (position * 1.5))
+                    outbound = float(outbound_counts.get(session_id, 0))
+                    outbound_score = math.log1p(outbound) * foundation_weight
+                    reference_score = float(reference_count) * max(0.2, position_weight) * 0.35
+                    dependency_score = outbound_score + reference_score
                 updates.append((dependency_score, int(row["event_id"]), session_id))
 
             connection.executemany(
@@ -166,7 +173,8 @@ def score_sessions() -> int:
             updates: list[tuple[float, float, float, str, int]] = []
             for row in rows:
                 session_id = int(row["id"])
-                recency_score = _recency_decay(str(row["ended_at"]))
+                days_since = max((datetime.now() - _parse_timestamp(str(row["ended_at"]))).total_seconds() / 86400.0, 0.0)
+                recency_score = math.exp(-days_since / 14.0)
                 dependency_score = dependency_scores.get(session_id, 0.0)
                 event_count_normalized = float(row["event_count"]) / float(max_event_count)
                 total_score = (
@@ -226,6 +234,7 @@ def get_foundational_events(
                 FROM event_sessions es
                 INNER JOIN events e ON e.id = es.event_id
                 WHERE es.session_id = ?
+                  AND e.interaction_type NOT IN ('heartbeat', 'scrolling', 'typing', 'legacy_heartbeat')
                 ORDER BY es.dependency_score DESC, es.position ASC, e.occurred_at ASC
                 LIMIT ?
                 """,
@@ -235,3 +244,64 @@ def get_foundational_events(
     except Exception:
         logger.exception("Failed to load foundational events for session %s", session_id)
         return []
+
+
+def get_network_health() -> dict:
+    """
+    Return dependency score distribution for health checking.
+    {
+      total_events: int,
+      passive_events: int,
+      active_events: int,
+      foundational_events: int,
+      leaf_events: int,
+      foundational_pct: float,
+    }
+    """
+    try:
+        with get_connection() as connection:
+            total = int(connection.execute("SELECT COUNT(*) FROM event_sessions").fetchone()[0])
+
+            passive = int(
+                connection.execute(
+                    """
+                    SELECT COUNT(*) FROM event_sessions es
+                    INNER JOIN events e ON e.id = es.event_id
+                    WHERE e.interaction_type IN (
+                        'heartbeat', 'scrolling', 'typing', 'legacy_heartbeat'
+                    )
+                    """
+                ).fetchone()[0]
+            )
+
+            foundational = int(
+                connection.execute(
+                    "SELECT COUNT(*) FROM event_sessions WHERE dependency_score > 1.0"
+                ).fetchone()[0]
+            )
+
+            leaf = int(
+                connection.execute(
+                    """
+                    SELECT COUNT(*) FROM event_sessions es
+                    INNER JOIN events e ON e.id = es.event_id
+                    WHERE es.dependency_score = 0.0
+                      AND e.interaction_type NOT IN (
+                          'heartbeat', 'scrolling', 'typing', 'legacy_heartbeat'
+                      )
+                    """
+                ).fetchone()[0]
+            )
+
+        active = total - passive
+        return {
+            "total_events": total,
+            "passive_events": passive,
+            "active_events": active,
+            "foundational_events": foundational,
+            "leaf_events": leaf,
+            "foundational_pct": round((foundational / max(active, 1)) * 100, 1),
+        }
+    except Exception:
+        logger.exception("Failed to get network health.")
+        return {}
