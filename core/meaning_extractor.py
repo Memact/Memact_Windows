@@ -169,9 +169,17 @@ class QueryMeaning:
     domain: str | None
     time_text: str | None
     activity_type: str | None
+    content_clues: tuple[str, ...] = ()
+    source_hints: tuple[str, ...] = ()
+    modality_hints: tuple[str, ...] = ()
+    time_hints: tuple[str, ...] = ()
+    intent: str = "recall"
 
     def embedding_text(self) -> str:
         parts = [self.raw_query]
+        parts.extend(self.content_clues)
+        parts.extend(self.source_hints)
+        parts.extend(self.modality_hints)
         if self.app:
             parts.append(self.app)
         if self.domain:
@@ -354,6 +362,170 @@ def _extract_activity_type(query: str, doc) -> str | None:
     return None
 
 
+def _clean_phrase(text: str | None) -> str | None:
+    cleaned = re.sub(r"\s+", " ", str(text or "").strip(" .,:;!?\"'()[]{}"))
+    if not cleaned:
+        return None
+    cleaned = re.sub(
+        r"^(?:what|where|when|how|did|do|i|me|my|that|this|thing|page|post|thread|article|pdf|doc|docs|answer|message)\s+",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\b(?:today|yesterday|recently|last|week|month|morning|afternoon|evening|tonight)\b",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,:;!?\"'")
+    if not cleaned:
+        return None
+    return cleaned
+
+
+def _extract_source_hints(query: str, *, app: str | None, domain: str | None, doc) -> tuple[str, ...]:
+    hints: list[str] = []
+    seen: set[str] = set()
+    for value in (domain, app):
+        cleaned = _clean_phrase(value)
+        if not cleaned:
+            continue
+        key = cleaned.casefold()
+        if key in seen:
+            continue
+        hints.append(cleaned)
+        seen.add(key)
+    if doc is not None:
+        for ent in doc.ents:
+            if ent.label_ not in {"ORG", "PRODUCT"}:
+                continue
+            cleaned = _clean_phrase(ent.text)
+            if not cleaned:
+                continue
+            key = cleaned.casefold()
+            if key in seen or _starts_with_concept(cleaned):
+                continue
+            hints.append(cleaned)
+            seen.add(key)
+            if len(hints) >= 4:
+                break
+    return tuple(hints)
+
+
+def _extract_modality_hints(query: str) -> tuple[str, ...]:
+    lowered = query.casefold()
+    modalities: list[str] = []
+    seen: set[str] = set()
+    modality_map = (
+        ("pdf", ("pdf",)),
+        ("doc", ("doc", "docs", "document")),
+        ("thread", ("thread",)),
+        ("post", ("post",)),
+        ("chat", ("chat", "chatgpt", "claude", "conversation")),
+        ("answer", ("answer",)),
+        ("video", ("video", "youtube", "watch")),
+        ("read", ("read", "article", "page")),
+        ("saw", ("saw", "seen")),
+        ("learned", ("learn", "learned", "study")),
+    )
+    for name, terms in modality_map:
+        if any(term in lowered for term in terms):
+            if name not in seen:
+                modalities.append(name)
+                seen.add(name)
+    return tuple(modalities)
+
+
+def _extract_content_clues(
+    query: str,
+    *,
+    doc,
+    app: str | None,
+    domain: str | None,
+    time_text: str | None,
+    modality_hints: tuple[str, ...],
+) -> tuple[str, ...]:
+    clues: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: str | None) -> None:
+        cleaned = _clean_phrase(value)
+        if not cleaned:
+            return
+        lowered = cleaned.casefold()
+        if lowered in seen:
+            return
+        if app and lowered == app.casefold():
+            return
+        if domain and lowered == domain.casefold():
+            return
+        if time_text and lowered == time_text.casefold():
+            return
+        if lowered in APP_ALIASES:
+            return
+        if len(tokenize(lowered)) < 1:
+            return
+        if len(lowered) < 3:
+            return
+        clues.append(cleaned)
+        seen.add(lowered)
+
+    if doc is not None:
+        for ent in doc.ents:
+            if ent.label_ in {"PERSON", "DATE", "TIME"}:
+                continue
+            add(ent.text)
+        for chunk in getattr(doc, "noun_chunks", []):
+            text = str(chunk.text).strip()
+            if not text or len(text) > 60:
+                continue
+            add(text)
+            if len(clues) >= 5:
+                break
+
+    stripped = query
+    for pattern in (
+        r"^what was that thing (?:i )?(?:read|saw|learned)(?: about)?\s+",
+        r"^what did i (?:read|see|learn)(?: about| on)?\s+",
+        r"^where did i read about\s+",
+        r"^i remember something about\s+",
+        r"^that (?:pdf|doc|thread|post|page|article|answer) about\s+",
+        r"^what led me to\s+",
+        r"^what was\s+",
+    ):
+        stripped = re.sub(pattern, "", stripped, flags=re.IGNORECASE)
+    add(stripped)
+
+    if not clues:
+        lowered_tokens = [
+            token
+            for token in tokenize(query)
+            if token not in _TIME_HINTS
+            and token not in _APP_VERBS
+            and token not in {hint.casefold() for hint in modality_hints}
+            and len(token) >= 3
+        ]
+        if lowered_tokens:
+            add(" ".join(lowered_tokens[:6]))
+    return tuple(clues[:4])
+
+
+def _infer_intent(query: str, *, activity_type: str | None) -> str:
+    lowered = query.casefold().strip()
+    if lowered.startswith(("when ", "how much time", "did i use", "what did i do today", "show my attention", "when was i most focused")):
+        return "secondary_timeline"
+    if "difference between" in lowered or " versus " in lowered or " vs " in lowered:
+        return "compare"
+    if "connection between" in lowered or "have in common" in lowered or "relate to" in lowered:
+        return "trace"
+    if "what led me to" in lowered or "what started" in lowered or "trace back" in lowered:
+        return "trace"
+    if activity_type in {"coding", "chatting"} and lowered.startswith("when "):
+        return "secondary_timeline"
+    return "recall"
+
+
 def extract_query_meaning(query: str) -> QueryMeaning:
     model = _spacy_model()
     doc = model(query) if model is not None else None
@@ -366,10 +538,27 @@ def extract_query_meaning(query: str) -> QueryMeaning:
         app = None
     time_text = _extract_time_text(query, doc)
     activity_type = _extract_activity_type(query, doc)
+    modality_hints = _extract_modality_hints(query)
+    content_clues = _extract_content_clues(
+        query,
+        doc=doc,
+        app=app,
+        domain=domain,
+        time_text=time_text,
+        modality_hints=modality_hints,
+    )
+    source_hints = _extract_source_hints(query, app=app, domain=domain, doc=doc)
+    time_hints = tuple(part.strip() for part in (time_text or "").split() if part.strip()) if time_text else ()
+    intent = _infer_intent(query, activity_type=activity_type)
     return QueryMeaning(
         raw_query=query,
         app=app,
         domain=domain,
         time_text=time_text,
         activity_type=activity_type,
+        content_clues=content_clues,
+        source_hints=source_hints,
+        modality_hints=modality_hints,
+        time_hints=time_hints,
+        intent=intent,
     )

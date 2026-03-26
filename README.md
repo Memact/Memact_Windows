@@ -2,7 +2,7 @@
 
 **Version** `v8.0`
 
-Memact helps you query the past.
+Query the Past.
 It quietly records what you do on your computer and lets you find it later.
 Instead of searching the internet again, you can query your own past.
 

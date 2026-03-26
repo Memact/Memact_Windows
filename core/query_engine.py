@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import re
 import math
 import threading
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from difflib import SequenceMatcher
 from functools import lru_cache
@@ -25,10 +25,17 @@ from core.engine_client import engine_candidates, first_available
 from core.keywords import extract_keyphrases
 from core.meaning_extractor import QueryMeaning, extract_query_meaning, warmup_spacy
 from core.episodic_graph import find_related_sessions, get_session_chain
-from core.semantic import cosine_similarity, embed_text, rerank_query_text_pairs, tokenize
+from core.retention import (
+    MemoryCandidate,
+    query_retained_memories,
+    recent_memory_topics,
+    start_retention_runtime,
+)
+from core.semantic import cosine_similarity, embed_text, normalize_text, rerank_query_text_pairs, tokenize
 from core.skill_loader import Skill, get_skills
 from core.skill_router import route_skill
 from core.duration import answer_duration_query, resolve_time_range
+from core.search_history import load_history
 from core.vector_store import ensure_seeded, is_available as chroma_available, query_event_ids, upsert_events
 
 
@@ -225,6 +232,12 @@ class ActivitySpan:
     activity_category: str | None
     activity_mode: str | None
     activity_confidence: float
+    is_retained_memory: bool = False
+    source_type: str | None = None
+    source_domain: str | None = None
+    source_title: str | None = None
+    query_anchor: str | None = None
+    why_matched: str | None = None
 
 
 @dataclass(slots=True)
@@ -245,6 +258,8 @@ class QueryAnswer:
     result_count: int
     related_queries: list[str]
     session_context: dict | None = None
+    auto_expand_evidence: bool = False
+    ui_mode: str = "default"
 
 
 @dataclass(slots=True)
@@ -327,6 +342,8 @@ def _attach_session_context(answer: QueryAnswer, session_context: dict | None) -
     if not session_context:
         return answer
     if not answer.evidence or _low_confidence(answer.evidence):
+        return answer
+    if getattr(answer.evidence[0], "is_retained_memory", False):
         return answer
     if float(session_context.get("_similarity") or 0.0) < 0.34:
         return answer
@@ -782,7 +799,7 @@ def _prompt_anchor_text(value: str | None, *, max_len: int = 48) -> str | None:
     if len(text) <= max_len:
         return text
     shortened = text[: max_len - 1].rstrip(" -,:;")
-    return f"{shortened}…"
+    return f"{shortened}â€¦"
 
 
 def _topic_is_specific(topic: str | None, event: Event | None = None) -> bool:
@@ -1295,7 +1312,7 @@ def _condense_source_label(value: str | None, *, max_len: int = 96) -> str | Non
     text = _normalize_label(value or "")
     if not text:
         return None
-    for separator in (" | ", " - ", " — ", ": "):
+    for separator in (" | ", " - ", " â€” ", ": "):
         if separator in text:
             first = text.split(separator, 1)[0].strip()
             if 18 <= len(first) <= max_len:
@@ -1304,7 +1321,7 @@ def _condense_source_label(value: str | None, *, max_len: int = 96) -> str | Non
     if 18 <= len(sentence) <= max_len:
         return sentence
     if len(text) > max_len:
-        return text[: max_len - 1].rstrip(" -|:.,") + "…"
+        return text[: max_len - 1].rstrip(" -|:.,") + "â€¦"
     return text
 
 
@@ -1551,7 +1568,247 @@ def _spans_to_event_dicts(spans: list[ActivitySpan], *, limit: int = 5) -> list[
     return items
 
 
+def _is_explicit_operational_query(query: str, meaning: QueryMeaning) -> bool:
+    if meaning.intent == "secondary_timeline":
+        return True
+    lowered = query.casefold().strip()
+    explicit_prefixes = (
+        "when did",
+        "how much time",
+        "did i use",
+        "did i visit",
+        "what did i do today",
+        "show my attention",
+        "when was i most focused",
+        "what apps",
+    )
+    return lowered.startswith(explicit_prefixes)
+
+
+def _memory_anchor_query(candidate: MemoryCandidate) -> str | None:
+    title = _display_memory_title(candidate).strip()
+    domain = (candidate.memory.source_domain or "").strip()
+    clue = next((phrase for phrase in candidate.memory.keyphrases if len(tokenize(phrase)) >= 2), "")
+    if title:
+        if domain:
+            return f"What led to {title} on {domain}?"
+        return f"What led to {title}?"
+    if clue:
+        return f"What else did I read about {clue}?"
+    return None
+
+
+def _memory_clue_label(query: str, meaning: QueryMeaning) -> str:
+    raw_query = query.strip().rstrip("?").strip()
+    if meaning.content_clues:
+        clue = meaning.content_clues[0].strip()
+        if clue and clue.casefold() not in _STOP_WORDS and clue.casefold() not in {"what", "that", "this", "thing"}:
+            return clue
+    lowered = raw_query.casefold()
+    for prefix in (
+        "what was that thing i read about ",
+        "what was that thing i saw about ",
+        "what was that thing about ",
+        "what did i read about ",
+        "what did i see about ",
+        "the chatgpt answer about ",
+        "the medium post on ",
+        "the x thread about ",
+        "that pdf about ",
+        "what led to ",
+    ):
+        if lowered.startswith(prefix):
+            trimmed = raw_query[len(prefix):].strip(" \"'.,")
+            if trimmed:
+                return trimmed
+    return raw_query or "that memory"
+
+
+def _history_suggestion_allowed(query: str) -> bool:
+    lowered = query.casefold().strip()
+    if not lowered:
+        return False
+    if lowered.startswith(("when did ", "where did ", "how much time ", "did i use ", "did i visit ", "what apps did i use ")):
+        return False
+    if lowered.startswith(("what led to ", "what happened after ", "show everything connected to ")):
+        return False
+    if " on local file" in lowered:
+        return False
+    return True
+
+
+def _display_memory_title(candidate: MemoryCandidate) -> str:
+    title = candidate.memory.title.strip()
+    normalized = normalize_text(title)
+    noisy_title = (
+        not title
+        or "::" in title
+        or normalized in {"browser session", "edge browser session", "newtab"}
+        or "more pages" in normalized
+        or "microsoft edge" in normalized
+        or "inprivate" in normalized
+        or "personal -" in normalized
+    )
+    if not noisy_title:
+        return title
+    profile = extract_content_profile(
+        candidate.best_chunk or candidate.memory.summary_snippet or candidate.memory.canonical_text,
+        title=title,
+        app_name=candidate.memory.source_app,
+        url=None,
+    )
+    fallback = profile.snippet or candidate.best_chunk or candidate.memory.summary_snippet
+    result = fallback.rstrip(" .,:;") if fallback else (title or candidate.memory.source_domain or candidate.memory.source_app)
+    result = re.split(r"(?<=[.!?])\s+", str(result or "").strip(), maxsplit=1)[0].strip()
+    if len(result) > 96:
+        result = result[:93].rstrip(" -,:;") + "..."
+    return result
+
+
+def _compact_memory_summary(text: str | None, *, max_chars: int = 220) -> str:
+    summary = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not summary:
+        return ""
+    summary = re.split(r"(?<=[.!?])\s+", summary, maxsplit=1)[0].strip()
+    if len(summary) > max_chars:
+        summary = summary[: max_chars - 3].rstrip(" -,:;") + "..."
+    return summary
+
+
+def _memory_candidate_to_span(candidate: MemoryCandidate) -> ActivitySpan:
+    event = candidate.event
+    display_title = _display_memory_title(candidate)
+    if event is None:
+        event = Event(
+            id=candidate.memory.last_event_id,
+            occurred_at=candidate.memory.captured_at,
+            application=candidate.memory.source_app or "unknown",
+            window_title=display_title,
+            url=None,
+            interaction_type="retained_memory",
+            content_text=candidate.memory.summary_snippet,
+            exe_path=None,
+            tab_titles_json=None,
+            tab_urls_json=None,
+            full_text=candidate.memory.canonical_text,
+            keyphrases_json=json.dumps(candidate.memory.keyphrases, ensure_ascii=True),
+            searchable_text=candidate.memory.canonical_text,
+            embedding_json=json.dumps(candidate.memory.embedding, ensure_ascii=True),
+            source="retention",
+        )
+    start_at = _parse_timestamp(event.occurred_at)
+    end_at = start_at + timedelta(seconds=30)
+    source_label = candidate.memory.source_domain or candidate.memory.source_app
+    return ActivitySpan(
+        start_at=start_at,
+        end_at=end_at,
+        duration_seconds=max(20, int((end_at - start_at).total_seconds())),
+        label=display_title,
+        session_title=display_title,
+        session_flow=display_title,
+        attention_cue=None,
+        tab_preview=[],
+        application=event.application,
+        url=event.url,
+        events=[event],
+        relevance=candidate.score,
+        snippet=candidate.best_chunk or candidate.memory.summary_snippet,
+        match_reason="retained memory match",
+        before_context=None,
+        after_context=None,
+        moment_summary="",
+        activity_category=None,
+        activity_mode=None,
+        activity_confidence=0.0,
+        is_retained_memory=True,
+        source_type=candidate.memory.source_type,
+        source_domain=candidate.memory.source_domain,
+        source_title=display_title,
+        query_anchor=None,
+        why_matched=None,
+    )
+
+
+def _memory_related_queries(
+    query: str,
+    meaning: QueryMeaning,
+    candidates: list[MemoryCandidate],
+) -> list[str]:
+    prompts: list[str] = []
+    if meaning.content_clues:
+        prompts.append(f"What else did I read about {meaning.content_clues[0]}?")
+    if meaning.source_hints:
+        prompts.append(f"What else did I read on {meaning.source_hints[0]}?")
+    top = candidates[0] if candidates else None
+    if top is not None and top.memory.source_domain:
+        prompts.append(f"What else did I see on {top.memory.source_domain}?")
+    if top is not None:
+        anchor = _memory_anchor_query(top)
+        if anchor:
+            prompts.append(anchor)
+    return _finalize_related_queries(prompts, original_query=query, limit=3)
+
+
+def _answer_memory_recall(query: str, meaning: QueryMeaning) -> QueryAnswer | None:
+    source_hints = list(meaning.source_hints) or ([meaning.domain] if meaning.domain else []) or ([meaning.app] if meaning.app else [])
+    candidates = query_retained_memories(
+        query,
+        content_clues=list(meaning.content_clues),
+        source_hints=source_hints,
+        modality_hints=list(meaning.modality_hints),
+        time_text=meaning.time_text,
+        limit=4,
+    )
+    if not candidates:
+        return None
+
+    top = candidates[0]
+    next_score = candidates[1].score if len(candidates) > 1 else -1.0
+    confident = (
+        len(candidates) == 1
+        and (top.lexical_score >= 0.3 or top.semantic_score >= 0.62 or top.score >= 0.3)
+    ) or (top.score >= 0.46 and (top.score - next_score) >= 0.08)
+    spans = [_memory_candidate_to_span(candidate) for candidate in candidates[:4]]
+    related: list[str] = []
+
+    if confident:
+        source_label = top.memory.source_domain or top.memory.source_app
+        display_title = _display_memory_title(top)
+        answer_text = display_title
+        summary = _compact_memory_summary(top.memory.summary_snippet or top.best_chunk)
+        if top.best_chunk and top.best_chunk != summary:
+            summary = _compact_memory_summary(top.best_chunk)
+        return QueryAnswer(
+            answer=answer_text,
+            summary=summary or "",
+            details_label="Show similar matches",
+            evidence=spans[:3],
+            time_scope_label=None,
+            result_count=len(candidates),
+            related_queries=related,
+            session_context=None,
+            auto_expand_evidence=False,
+            ui_mode="memory",
+        )
+
+    clue_text = _memory_clue_label(query, meaning)
+    return QueryAnswer(
+        answer=f'Matches for "{clue_text}"',
+        summary="",
+        details_label="",
+        evidence=spans,
+        time_scope_label=None,
+        result_count=len(candidates),
+        related_queries=related,
+        session_context=None,
+        auto_expand_evidence=True,
+        ui_mode="candidates",
+    )
+
+
 def _topic_from_query(query: str, meaning: QueryMeaning) -> str:
+    if meaning.content_clues:
+        return meaning.content_clues[0]
     if meaning.domain:
         return meaning.domain
     if meaning.app:
@@ -2323,6 +2580,10 @@ def _start_background_warmup() -> None:
         try:
             warmup_spacy()
             embed_text("warmup")
+            try:
+                start_retention_runtime()
+            except Exception:
+                pass
             try:
                 if chroma_available():
                     ensure_seeded(list_recent_events(limit=800))
@@ -3966,10 +4227,8 @@ def _build_related_queries(
 ) -> list[str]:
     prompts: list[str] = []
     target_label = None
-    target_is_domain = False
     if target_domains:
         target_label = sorted(target_domains)[0]
-        target_is_domain = True
     elif app_hint:
         target_label = app_hint
     if any(_span_has_precise_capture(span) for span in spans[:3]):
@@ -3977,22 +4236,16 @@ def _build_related_queries(
         if top_topic and _topic_is_specific(top_topic[0]):
             prompts.append(f"What else did I read about {top_topic[0]}?")
         if target_label:
-            prompts.append(f"What did I read on {target_label}?")
+            prompts.append(f"What else did I read on {target_label}?")
     for span in spans[:3]:
-        app = _friendly_app_name(span.application)
-        if span.url:
-            domain = _domain(span.url) or _display_label(span)
-            prompts.append(f"When did I last visit {domain}?")
-        prompts.append(f"When did I last use {app}?")
-    if target_label:
-        if target_is_domain:
-            prompts.insert(0, f"When did I last visit {target_label}?")
-            prompts.insert(1, f"How much time did I spend on {target_label} today?")
-        else:
-            prompts.insert(0, f"When did I last use {target_label}?")
-            prompts.insert(1, f"How much time did I spend in {target_label} today?")
+        topic = _top_content_topics([span], limit=1)
+        if topic and _topic_is_specific(topic[0]):
+            prompts.append(f"What was that thing about {topic[0]}?")
+        anchor = _prompt_anchor_text(span.source_title or span.session_title or _display_label(span))
+        if anchor:
+            prompts.append(f"What led to {anchor}?")
     if time_scope:
-        prompts.append(f"What else was I doing {time_scope}?")
+        prompts.append(f"What else did I read {time_scope}?")
     return _finalize_related_queries(prompts, original_query=query, limit=3)
 
 
@@ -4041,6 +4294,11 @@ def answer_query(query: str) -> QueryAnswer:
             return _final(_handle_connection_query(query, meaning))
         if skill.name == "progression_query":
             return _final(_handle_progression_query(query, meaning))
+
+    if not _is_explicit_operational_query(query, meaning):
+        memory_answer = _answer_memory_recall(query, meaning)
+        if memory_answer is not None:
+            return _final(memory_answer)
 
     intent_categories = _intent_category_candidates(query, query_vector)
     if intent_categories:
@@ -4673,106 +4931,75 @@ def answer_query(query: str) -> QueryAnswer:
 
 
 def dynamic_suggestions(limit: int = 4, time_filter: str | None = None) -> list[SearchSuggestion]:
-    scoped_events: list[Event] = []
-    scope = (time_filter or "").strip()
-    if scope:
-        try:
-            start_at, end_at = resolve_time_range(scope)
-            scoped_events = list_events_between(start_at, end_at, limit=120)
-        except Exception:
-            scoped_events = []
-    events = scoped_events if scope else list_recent_events(limit=120)
-    recall_topics = _recent_recall_topics(events, limit=3)
-    recall_suffix = f" {scope}" if scope else ""
-    if not events:
-        return [
-            SearchSuggestion(
-                title=f"What was I doing{recall_suffix or ' today'}?",
-                subtitle="Broad overview of your latest activity.",
-                completion=f"What was I doing{recall_suffix or ' today'}?",
-                category="Suggested",
-            ),
-            SearchSuggestion(
-                title=f"What did I work on{recall_suffix or ' this week'}?",
-                subtitle="Good for day-part recall.",
-                completion=f"What did I work on{recall_suffix or ' this week'}?",
-                category="Suggested",
-            ),
-            SearchSuggestion(
-                title=f"Did I use my browser{recall_suffix or ' today'}?",
-                subtitle="Find the latest browser activity.",
-                completion=f"Did I use my browser{recall_suffix or ' today'}?",
-                category="Suggested",
-            ),
-        ][:limit]
-
-    apps = Counter()
-    domains = Counter()
-    for event in events:
-        apps[_friendly_app_name(event.application)] += 1
-        domain = _domain(event.url)
-        if domain:
-            domains[domain] += 1
-
     suggestions: list[SearchSuggestion] = []
-    if recall_topics:
-        topic = recall_topics[0]
-        prompt = f"Where did I read about {topic}{recall_suffix}?"
+    for item in load_history(limit=8):
+        query = str(item.get("query", "")).strip()
+        if not _history_suggestion_allowed(query):
+            continue
         suggestions.append(
             SearchSuggestion(
-                title=prompt,
-                subtitle="Find a half-remembered concept from recent pages or apps.",
-                completion=prompt,
-                category="Recall",
+                title=query,
+                subtitle="Recent search from your local history.",
+                completion=query,
+                category="Recent",
             )
         )
-    if domains:
-        domain_name = domains.most_common(1)[0][0]
-        prompt = f"How much time did I spend on {domain_name}{recall_suffix or ' today'}?"
-        suggestions.append(
-            SearchSuggestion(
-                title=prompt,
-                subtitle="Estimate time spent on a specific site.",
-                completion=prompt,
-                category="Frequent site",
-            )
-        )
-    if apps:
-        app_name = apps.most_common(1)[0][0]
-        if scope:
-            prompt = f"What did I do in {app_name} {scope}?"
-            subtitle = "Focus suggestions around a frequent app in that time window."
-        else:
-            prompt = f"When did I last use {app_name}?"
-            subtitle = "Jump straight to the latest app usage."
-        suggestions.append(
-            SearchSuggestion(
-                title=prompt,
-                subtitle=subtitle,
-                completion=prompt,
-                category="Frequent app",
-            )
-        )
-    for prompt, subtitle in (
-        (f"What was I doing{recall_suffix or ' yesterday evening'}?", "Look at a recent time slice."),
-        (f"What did I work on{recall_suffix or ' this week'}?", "Summarize broader work patterns."),
-        (f"Did I open GitHub{recall_suffix or ' today'}?", "Ask a direct yes or no question."),
-    ):
-        suggestions.append(
-            SearchSuggestion(
-                title=prompt,
-                subtitle=subtitle,
-                completion=prompt,
-                category="Suggested",
-            )
-        )
+        if len(suggestions) >= limit:
+            return suggestions[:limit]
 
-    deduped: list[SearchSuggestion] = []
+    for topic in recent_memory_topics(limit=6):
+        suggestions.append(
+            SearchSuggestion(
+                title=topic,
+                subtitle="Recent retained topic from your local content.",
+                completion=topic,
+                category="Memory",
+            )
+        )
+        if len(suggestions) >= limit:
+            return suggestions[:limit]
+
+    suggestions.extend([
+        SearchSuggestion(
+            title="What was that thing I read about async Python?",
+            subtitle="Recover a remembered page, thread, answer, or document from partial clues.",
+            completion="What was that thing I read about async Python?",
+            category="Recall",
+        ),
+        SearchSuggestion(
+            title="That PDF about OAuth refresh tokens",
+            subtitle="Use partial clues instead of exact titles.",
+            completion="That PDF about OAuth refresh tokens",
+            category="Clue",
+        ),
+        SearchSuggestion(
+            title="The ChatGPT answer about chunking",
+            subtitle="Look across chat, docs, browser pages, and social content.",
+            completion="The ChatGPT answer about chunking",
+            category="Clue",
+        ),
+        SearchSuggestion(
+            title="The Medium post on embeddings",
+            subtitle="Search remembered content across apps.",
+            completion="The Medium post on embeddings",
+            category="Clue",
+        ),
+        SearchSuggestion(
+            title="The X thread about founder distribution",
+            subtitle="Recover a social post from partial memory.",
+            completion="The X thread about founder distribution",
+            category="Clue",
+        ),
+    ])
+
     seen: set[str] = set()
+    deduped: list[SearchSuggestion] = []
     for suggestion in suggestions:
-        if suggestion.completion.casefold() not in seen:
-            deduped.append(suggestion)
-            seen.add(suggestion.completion.casefold())
+        key = suggestion.completion.casefold()
+        if key in seen:
+            continue
+        deduped.append(suggestion)
+        seen.add(key)
         if len(deduped) >= limit:
             break
     return deduped
@@ -4784,179 +5011,109 @@ def autocomplete_suggestions(prefix: str, limit: int = 5) -> list[SearchSuggesti
         return []
 
     lower = typed.lower()
+    suggestions: list[SearchSuggestion] = []
+    seen: set[str] = set()
+    if len(typed) >= 2:
+        suggestions.append(
+            SearchSuggestion(
+                title=typed,
+                subtitle="Search this clue directly in your local memories.",
+                completion=typed,
+                category="Search",
+            )
+        )
+        seen.add(typed.casefold())
+    for item in load_history(limit=12):
+        query = str(item.get("query", "")).strip()
+        if not _history_suggestion_allowed(query) or lower not in query.casefold():
+            continue
+        key = query.casefold()
+        if key in seen:
+            continue
+        suggestions.append(
+            SearchSuggestion(
+                title=query,
+                subtitle="Recent search from your local history.",
+                completion=query,
+                category="Recent",
+            )
+        )
+        seen.add(key)
+        if len(suggestions) >= limit:
+            return suggestions
+
+    for topic in recent_memory_topics(limit=10):
+        if lower not in topic.casefold():
+            continue
+        key = topic.casefold()
+        if key in seen:
+            continue
+        suggestions.append(
+            SearchSuggestion(
+                title=topic,
+                subtitle="Recent retained topic from your local content.",
+                completion=topic,
+                category="Memory",
+            )
+        )
+        seen.add(key)
+        if len(suggestions) >= limit:
+            return suggestions
+
     lexical = lexical_candidates(typed, limit=32)
     pool = lexical or list_recent_events(limit=80)
     token_matches = _meaningful_tokens(lower)
-
-    entity_counts = Counter[str]()
-    for event in pool:
-        for label in (_domain(event.url), _friendly_app_name(event.application), _event_label(event)):
-            if label and len(label.strip()) >= 3:
-                entity_counts[label.strip()] += 1
-    recall_topics = _recent_recall_topics(pool, limit=6)
+    recall_topics = recent_memory_topics(limit=8) or _recent_recall_topics(pool, limit=8)
     if token_matches:
         matched_topics = [
             topic for topic in recall_topics if any(token in topic.casefold() for token in token_matches)
         ]
-        if matched_topics:
-            recall_topics = matched_topics
+        recall_topics = matched_topics
 
-    entity_suggestions: list[SearchSuggestion] = []
-    for label, _count in entity_counts.most_common(8):
-        label_lower = label.lower()
-        if token_matches and not any(token in label_lower for token in token_matches):
-            continue
-        entity_suggestions.extend(
-            [
-                SearchSuggestion(
-                    title=f"When did I last use {label}?",
-                    subtitle="Direct lookup for the latest matching activity.",
-                    completion=f"When did I last use {label}?",
-                    category="Quick answer",
-                ),
-                SearchSuggestion(
-                    title=f"How much time did I spend on {label} today?",
-                    subtitle="Estimate time spent in the current day.",
-                    completion=f"How much time did I spend on {label} today?",
-                    category="Time analysis",
-                ),
-                SearchSuggestion(
-                    title=f"Did I use {label} today?",
-                    subtitle="Binary check against recent activity.",
-                    completion=f"Did I use {label} today?",
-                    category="Verification",
-                ),
-            ]
+    if not recall_topics:
+        recall_topics = ["async Python", "OAuth refresh tokens", "RAG chunking"]
+
+    for topic in recall_topics[:3]:
+        generated = [
+            SearchSuggestion(
+                title=f"What was that thing I read about {topic}?",
+                subtitle="Recover a remembered page, thread, answer, or document.",
+                completion=f"What was that thing I read about {topic}?",
+                category="Recall",
+            ),
+            SearchSuggestion(
+                title=f"That PDF about {topic}",
+                subtitle="Use partial clues instead of exact titles.",
+                completion=f"That PDF about {topic}",
+                category="Clue",
+            ),
+            SearchSuggestion(
+                title=f"The ChatGPT answer about {topic}",
+                subtitle="Look across chat, docs, browser pages, and social content.",
+                completion=f"The ChatGPT answer about {topic}",
+                category="Clue",
+            ),
+        ]
+        for suggestion in generated:
+            key = suggestion.completion.casefold()
+            if key in seen:
+                continue
+            suggestions.append(suggestion)
+            seen.add(key)
+            if len(suggestions) >= limit:
+                return suggestions
+
+    if lower.startswith("what led"):
+        trace = SearchSuggestion(
+            title="What led me to start working on authentication?",
+            subtitle="Trace the context around a remembered thing.",
+            completion="What led me to start working on authentication?",
+            category="Trace",
         )
+        if trace.completion.casefold() not in seen:
+            suggestions.insert(0, trace)
 
-    recall_what_suggestions = [
-        SearchSuggestion(
-            title=f"What was that page or message about {topic}?",
-            subtitle="Recover the meaning of something you half remember.",
-            completion=f"What was that page or message about {topic}?",
-            category="Recall",
-        )
-        for topic in recall_topics[:2]
-    ]
-    recall_where_suggestions = [
-        SearchSuggestion(
-            title=f"Where did I read about {topic}?",
-            subtitle="Search across recent pages, chats, and threads.",
-            completion=f"Where did I read about {topic}?",
-            category="Recall",
-        )
-        for topic in recall_topics[:2]
-    ]
-    recall_remember_suggestions = [
-        SearchSuggestion(
-            title=f"I remember something about {topic}",
-            subtitle="Search for a half-remembered concept across recent activity.",
-            completion=f"I remember something about {topic}",
-            category="Recall",
-        )
-        for topic in recall_topics[:2]
-    ]
-
-    intent_map = {
-        "what": [
-            SearchSuggestion(
-                title="What was I doing today?",
-                subtitle="Overview of current-day activity.",
-                completion="What was I doing today?",
-                category="Explore",
-            ),
-            SearchSuggestion(
-                title="What did I do yesterday evening?",
-                subtitle="Focus on a specific time window.",
-                completion="What did I do yesterday evening?",
-                category="Explore",
-            ),
-            *recall_what_suggestions,
-        ],
-        "where": recall_where_suggestions,
-        "when": [
-            SearchSuggestion(
-                title="When did I last use Chrome?",
-                subtitle="Find the latest app or site usage.",
-                completion="When did I last use Chrome?",
-                category="Quick answer",
-            ),
-            SearchSuggestion(
-                title="When did I last visit GitHub?",
-                subtitle="Resolve recent site activity quickly.",
-                completion="When did I last visit GitHub?",
-                category="Quick answer",
-            ),
-        ],
-        "how": [
-            SearchSuggestion(
-                title="How much time did I spend on YouTube today?",
-                subtitle="Estimate duration from grouped events.",
-                completion="How much time did I spend on YouTube today?",
-                category="Time analysis",
-            ),
-            SearchSuggestion(
-                title="How long was I coding today?",
-                subtitle="Measure time spent in a work session.",
-                completion="How long was I coding today?",
-                category="Time analysis",
-            ),
-        ],
-        "remember": recall_remember_suggestions,
-        "did": [
-            SearchSuggestion(
-                title="Did I open GitHub today?",
-                subtitle="Check whether a specific activity happened.",
-                completion="Did I open GitHub today?",
-                category="Verification",
-            ),
-            SearchSuggestion(
-                title="Did I use Discord today?",
-                subtitle="Verify activity from local events.",
-                completion="Did I use Discord today?",
-                category="Verification",
-            ),
-        ],
-        "which": [
-            SearchSuggestion(
-                title="Which apps did I use today?",
-                subtitle="List distinct apps from local history.",
-                completion="Which apps did I use today?",
-                category="Explore",
-            ),
-            SearchSuggestion(
-                title="Which sites did I visit today?",
-                subtitle="List distinct domains from browser activity.",
-                completion="Which sites did I visit today?",
-                category="Explore",
-            ),
-        ],
-    }
-
-    candidates: list[SearchSuggestion] = []
-    if token_matches and entity_suggestions:
-        candidates.extend(entity_suggestions)
-    else:
-        for key, suggestions in intent_map.items():
-            if lower.startswith(key):
-                candidates.extend(suggestions)
-                break
-        candidates.extend(entity_suggestions)
-    if not candidates:
-        candidates.extend(dynamic_suggestions(limit=limit))
-
-    deduped: list[SearchSuggestion] = []
-    seen: set[str] = set()
-    for candidate in candidates:
-        if candidate.completion.casefold() in seen:
-            continue
-        if not lower.startswith(("what", "where", "when", "how", "did", "which", "remember")) and lower not in candidate.completion.lower():
-            continue
-        deduped.append(candidate)
-        seen.add(candidate.completion.casefold())
-        if len(deduped) >= limit:
-            break
-    return deduped
+    return suggestions[:limit]
 
 
 def _join_labels(labels: list[str]) -> str:
@@ -5067,3 +5224,4 @@ try:
     _start_background_warmup()
 except Exception:
     pass
+

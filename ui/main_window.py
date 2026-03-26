@@ -350,21 +350,25 @@ class HistoryRow(QFrame):
 
 
 class EvidenceCard(QFrame):
+    activated = pyqtSignal(str)
+
     def __init__(self, span: ActivitySpan, parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("EvidenceCard")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(6)
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        self._wrap_labels: list[QLabel] = []
 
-        title = QLabel(span.session_title)
+        title = QLabel(span.source_title or span.session_title)
         title.setObjectName("EvidenceTitle")
         title.setWordWrap(True)
+        self._wrap_labels.append(title)
 
         app_label = span.application.removesuffix(".exe").replace("_", " ").title()
-        chip_row = QHBoxLayout()
+        chip_row = FlowLayout(spacing=8)
         chip_row.setContentsMargins(0, 0, 0, 0)
-        chip_row.setSpacing(8)
         activity_chips: list[str] = []
         if getattr(span, "activity_mode", None):
             activity_chips.append(str(span.activity_mode).replace("_", " ").title())
@@ -374,18 +378,26 @@ class EvidenceCard(QFrame):
             activity_chips.append(str(category).replace("_", " ").title())
         if not activity_chips:
             activity_chips.append("Web Activity" if span.url else "App Activity")
-        for chip_text in (
-            app_label,
-            _domain_chip(span.url),
-            *activity_chips,
-            _duration_chip(span.duration_seconds),
-        ):
+        chip_values = (
+            (
+                app_label,
+                span.source_domain or _domain_chip(span.url),
+                str((span.source_type or "").replace("_", " ").title() or "Memory"),
+            )
+            if getattr(span, "is_retained_memory", False)
+            else (
+                app_label,
+                _domain_chip(span.url),
+                *activity_chips,
+                _duration_chip(span.duration_seconds),
+            )
+        )
+        for chip_text in chip_values:
             if not chip_text:
                 continue
             chip = QLabel(chip_text)
             chip.setObjectName("EvidenceChip")
             chip_row.addWidget(chip)
-        chip_row.addStretch(1)
 
         all_phrases: list[str] = []
         seen_phrases: set[str] = set()
@@ -405,7 +417,7 @@ class EvidenceCard(QFrame):
                 break
 
         keyphrase_row = None
-        if all_phrases:
+        if all_phrases and not getattr(span, "is_retained_memory", False):
             keyphrase_row = QHBoxLayout()
             keyphrase_row.setContentsMargins(0, 0, 0, 0)
             keyphrase_row.setSpacing(8)
@@ -415,11 +427,14 @@ class EvidenceCard(QFrame):
                 keyphrase_row.addWidget(label)
             keyphrase_row.addStretch(1)
 
-        meta = QLabel(
-            f"{span.start_at.strftime('%b %d')}  |  {span.start_at.strftime('%I:%M %p').lstrip('0')} to {span.end_at.strftime('%I:%M %p').lstrip('0')}  |  {app_label}"
-        )
+        if getattr(span, "is_retained_memory", False):
+            meta_text = f"{span.start_at.strftime('%b %d')}  |  {span.start_at.strftime('%I:%M %p').lstrip('0')}  |  {app_label}"
+        else:
+            meta_text = f"{span.start_at.strftime('%b %d')}  |  {span.start_at.strftime('%I:%M %p').lstrip('0')} to {span.end_at.strftime('%I:%M %p').lstrip('0')}  |  {app_label}"
+        meta = QLabel(meta_text)
         meta.setObjectName("EvidenceMeta")
         meta.setWordWrap(True)
+        self._wrap_labels.append(meta)
 
         link_button = None
         best_url = _best_url_for_span(span)
@@ -439,13 +454,14 @@ class EvidenceCard(QFrame):
         attention = None
 
         snippet_text = span.snippet.strip()
-        if snippet_text and len(snippet_text) > 180:
-            snippet_text = snippet_text[:177].rstrip() + "..."
+        if snippet_text and len(snippet_text) > 140:
+            snippet_text = snippet_text[:137].rstrip() + "..."
         snippet = None
         if snippet_text and snippet_text.casefold() not in {span.session_title.casefold(), span.label.casefold()}:
             snippet = QLabel(snippet_text)
             snippet.setObjectName("EvidenceSnippet")
             snippet.setWordWrap(True)
+            self._wrap_labels.append(snippet)
 
         context_line = None
         if span.before_context or span.after_context:
@@ -463,6 +479,12 @@ class EvidenceCard(QFrame):
             context_line = QLabel(span.moment_summary)
             context_line.setObjectName("EvidenceMoment")
             context_line.setWordWrap(True)
+        if getattr(span, "why_matched", None):
+            context_line = QLabel(str(span.why_matched))
+            context_line.setObjectName("EvidenceMoment")
+            context_line.setWordWrap(True)
+        if context_line is not None:
+            self._wrap_labels.append(context_line)
 
         layout.addWidget(title)
         layout.addLayout(chip_row)
@@ -476,6 +498,26 @@ class EvidenceCard(QFrame):
         if context_line is not None:
             layout.addWidget(context_line)
         # Drop match-reason line to reduce clutter; details are in the summary above.
+        QTimer.singleShot(0, self._reflow_labels)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._reflow_labels()
+
+    def _reflow_labels(self) -> None:
+        for label in self._wrap_labels:
+            if not label.wordWrap():
+                continue
+            if not label.isVisible() or not label.text():
+                label.setMinimumHeight(0)
+                continue
+            width = max(1, label.width())
+            rect = label.fontMetrics().boundingRect(
+                QRect(0, 0, width, 10000),
+                int(Qt.TextFlag.TextWordWrap | Qt.TextFlag.TextExpandTabs),
+                label.text(),
+            )
+            label.setMinimumHeight(rect.height() + 4)
 
 
 class GlassInfoDialog(QDialog):
@@ -1508,15 +1550,18 @@ class MainWindow(QMainWindow):
         self.answer_text = QLabel("")
         self.answer_text.setObjectName("AnswerText")
         self.answer_text.setWordWrap(True)
+        self.answer_text.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.answer_summary = QLabel("")
         self.answer_summary.setObjectName("AnswerSummary")
         self.answer_summary.setWordWrap(True)
+        self.answer_summary.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.session_heading = QLabel("EPISODIC GRAPH")
         self.session_heading.setObjectName("SessionHeading")
         self.session_heading.setVisible(False)
         self.session_summary = QLabel("")
         self.session_summary.setObjectName("SessionSummary")
         self.session_summary.setWordWrap(True)
+        self.session_summary.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
         self.session_summary.setVisible(False)
         self.session_action_row = FlowLayout(spacing=8)
         self.session_action_row.setSpacing(8)
@@ -1542,6 +1587,7 @@ class MainWindow(QMainWindow):
         self.evidence_scroll = QScrollArea()
         self.evidence_scroll.setObjectName("EvidenceScroll")
         self.evidence_scroll.setWidgetResizable(True)
+        self.evidence_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self.evidence_scroll.setVisible(False)
         self.evidence_content = QWidget()
         self.evidence_layout = QVBoxLayout(self.evidence_content)
@@ -1614,7 +1660,7 @@ class MainWindow(QMainWindow):
             self.tray = None
             return
         self.tray = QSystemTrayIcon(app_icon(64), self)
-        self.tray.setToolTip("Memact — Query the Past")
+        self.tray.setToolTip("Memact — Query the Past.")
         tray_menu = QMenu(self)
         tray_menu.setFont(body_font(12))
         tray_menu.setStyleSheet(self._menu_stylesheet())
@@ -2088,6 +2134,7 @@ class MainWindow(QMainWindow):
             self.results_header_layout.invalidate()
             self.results_header_layout.activate()
         self._apply_responsive_sizes()
+        self._refresh_answer_card_geometry()
         self._position_results_shadow()
         self._position_loading_bar()
 
@@ -2472,14 +2519,24 @@ class MainWindow(QMainWindow):
         self.search_input.style().polish(self.search_input)
         self.search_input.update()
         self._update_search_button()
-        self.answer_eyebrow.setText("LOCAL ANSWER" if not answer.time_scope_label else f"LOCAL ANSWER - {answer.time_scope_label.upper()}")
+        if answer.ui_mode == "candidates":
+            eyebrow_text = "POSSIBLE MATCHES"
+        elif answer.ui_mode == "memory":
+            eyebrow_text = "MATCHED MEMORY"
+        else:
+            eyebrow_text = "LOCAL ANSWER" if not answer.time_scope_label else f"LOCAL ANSWER - {answer.time_scope_label.upper()}"
+        self.answer_eyebrow.setText(eyebrow_text)
         self.answer_text.setText(answer.answer)
         self.answer_summary.setText(answer.summary)
+        self.answer_summary.setVisible(bool(answer.summary))
         self._render_session_context(answer.session_context)
         self._render_related_queries(answer.related_queries)
-        self.details_button.setVisible(bool(answer.evidence))
-        self.details_button.setText(answer.details_label or "Show top matches")
-        self.evidence_scroll.setVisible(False)
+        self.details_button.setVisible(bool(answer.evidence) and not answer.auto_expand_evidence)
+        if answer.auto_expand_evidence and answer.evidence:
+            self.details_button.setText("Hide matches")
+        else:
+            self.details_button.setText(answer.details_label or "Show top matches")
+        self.evidence_scroll.setVisible(bool(answer.auto_expand_evidence))
         self.answer_card.show()
         self.results_separator.show()
         self._populate_evidence(answer)
@@ -2487,19 +2544,26 @@ class MainWindow(QMainWindow):
         self._sync_results_visibility_for_suggestions(False)
         self._set_search_attached(False)
         self._set_hero_shifted(False)
-        if answer.result_count:
+        if answer.ui_mode == "candidates":
+            self.status_text.setText("Showing the closest local matches.")
+        elif answer.evidence and all(getattr(span, "is_retained_memory", False) for span in answer.evidence):
+            self.status_text.setText("Matched retained memories from local content on this device.")
+        elif answer.result_count:
             self.status_text.setText(f"Matched {answer.result_count} local events and ranked the strongest evidence.")
         else:
             self.status_text.setText("Answer generated from local events on this device.")
         self._sync_back_button()
+        QTimer.singleShot(0, self._refresh_answer_card_geometry)
         QTimer.singleShot(0, self._settle_layout)
 
     def _populate_evidence(self, answer: QueryAnswer) -> None:
         self._clear_evidence_cards()
         for span in answer.evidence:
             card = EvidenceCard(span)
+            card.activated.connect(self._apply_suggestion)
             self.evidence_layout.addWidget(card)
         self.evidence_layout.addStretch(1)
+        QTimer.singleShot(0, self._refresh_answer_card_geometry)
 
     def _clear_evidence_cards(self) -> None:
         while self.evidence_layout.count():
@@ -2507,6 +2571,39 @@ class MainWindow(QMainWindow):
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
+
+    def _fit_wrapped_label(self, label: QLabel) -> None:
+        if not label.wordWrap():
+            return
+        if not label.isVisible() or not label.text():
+            label.setMinimumHeight(0)
+            return
+        width = max(1, label.width())
+        rect = label.fontMetrics().boundingRect(
+            QRect(0, 0, width, 10000),
+            int(Qt.TextFlag.TextWordWrap | Qt.TextFlag.TextExpandTabs),
+            label.text(),
+        )
+        label.setMinimumHeight(rect.height() + 6)
+
+    def _sync_evidence_height(self) -> None:
+        if not self.evidence_scroll.isVisible():
+            self.evidence_scroll.setMinimumHeight(0)
+            self.evidence_scroll.setMaximumHeight(16777215)
+            return
+        self.evidence_content.adjustSize()
+        content_height = self.evidence_content.sizeHint().height()
+        frame_height = self.evidence_scroll.frameWidth() * 2
+        max_height = 460 if self._last_answer and self._last_answer.auto_expand_evidence else 320
+        target_height = max(0, min(content_height + frame_height + 6, max_height))
+        self.evidence_scroll.setMinimumHeight(target_height)
+        self.evidence_scroll.setMaximumHeight(target_height)
+
+    def _refresh_answer_card_geometry(self) -> None:
+        for label in (self.answer_text, self.answer_summary, self.session_summary):
+            self._fit_wrapped_label(label)
+        self._sync_evidence_height()
+        self.answer_card.updateGeometry()
 
     def _render_session_context(self, session_context: dict | None) -> None:
         while self.session_action_row.count():
@@ -2600,6 +2697,7 @@ class MainWindow(QMainWindow):
         visible = not self.evidence_scroll.isVisible()
         self.evidence_scroll.setVisible(visible)
         self.details_button.setText("Hide top matches" if visible else (self._last_answer.details_label if self._last_answer else "Show top matches"))
+        self._refresh_answer_card_geometry()
 
     def _handle_new_event(self) -> None:
         if not self._db_ready:
@@ -2627,6 +2725,7 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
         self._apply_responsive_sizes()
+        self._refresh_answer_card_geometry()
         self.root.layout().invalidate()
         self.root.layout().activate()
         QTimer.singleShot(0, self._position_suggestion_dock)
@@ -2694,6 +2793,7 @@ class MainWindow(QMainWindow):
             apply_native_window_theme(self)
             self._native_theme_applied = True
         self._apply_responsive_sizes()
+        self._refresh_answer_card_geometry()
         self._position_suggestion_dock()
         self._position_results_shadow()
         self._position_loading_bar()
@@ -2701,6 +2801,7 @@ class MainWindow(QMainWindow):
     def changeEvent(self, event) -> None:  # noqa: N802
         if event.type() == QEvent.Type.WindowStateChange:
             self._apply_responsive_sizes()
+            self._refresh_answer_card_geometry()
             self._position_suggestion_dock()
             self._position_results_shadow()
             self._position_loading_bar()

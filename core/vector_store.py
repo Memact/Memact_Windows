@@ -13,7 +13,8 @@ except Exception:  # pragma: no cover - optional dependency
 from core.semantic import embed_text
 
 
-_COLLECTION_NAME = "memact_events"
+_EVENT_COLLECTION_NAME = "memact_events"
+_MEMORY_CHUNK_COLLECTION_NAME = "memact_memory_chunks"
 
 
 def is_available() -> bool:
@@ -36,9 +37,9 @@ def _client():
         return chromadb.PersistentClient(path=str(_persist_directory()))
 
 
-def _collection():
+def _collection(name: str):
     client = _client()
-    return client.get_or_create_collection(name=_COLLECTION_NAME)
+    return client.get_or_create_collection(name=name)
 
 
 def _domain_from_url(url: str | None) -> str | None:
@@ -104,7 +105,46 @@ def upsert_events(events: Iterable) -> None:
         documents.append(getattr(event, "searchable_text", "") or "")
     if not ids:
         return
-    collection = _collection()
+    collection = _collection(_EVENT_COLLECTION_NAME)
+    collection.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
+
+
+def upsert_memory_chunks(chunks: Iterable) -> None:
+    if chromadb is None:
+        return
+    items = list(chunks)
+    if not items:
+        return
+    target_dim = _target_embedding_dim()
+    ids: list[str] = []
+    embeddings: list[list[float]] = []
+    metadatas: list[dict[str, object]] = []
+    documents: list[str] = []
+    for chunk in items:
+        embedding = list(getattr(chunk, "embedding", []) or [])
+        lexical_text = str(getattr(chunk, "lexical_text", "") or "")
+        chunk_text = str(getattr(chunk, "chunk_text", "") or "")
+        if len(embedding) != target_dim:
+            embedding = embed_text(lexical_text or chunk_text)
+        if len(embedding) != target_dim:
+            continue
+        chunk_id = int(getattr(chunk, "id"))
+        memory_id = int(getattr(chunk, "memory_id"))
+        quality_score = float(getattr(chunk, "quality_score", 0.0) or 0.0)
+        chunk_order = int(getattr(chunk, "chunk_order", 0) or 0)
+        metadata = {
+            "chunk_id": chunk_id,
+            "memory_id": memory_id,
+            "chunk_order": chunk_order,
+            "quality_score": quality_score,
+        }
+        ids.append(str(chunk_id))
+        embeddings.append(embedding)
+        metadatas.append(metadata)
+        documents.append(lexical_text or chunk_text)
+    if not ids:
+        return
+    collection = _collection(_MEMORY_CHUNK_COLLECTION_NAME)
     collection.upsert(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
 
 
@@ -112,7 +152,7 @@ def ensure_seeded(events: Iterable) -> None:
     if chromadb is None:
         return
     try:
-        collection = _collection()
+        collection = _collection(_EVENT_COLLECTION_NAME)
         if collection.count() == 0:
             upsert_events(events)
     except Exception:
@@ -124,15 +164,33 @@ def reset_collection() -> None:
         return
     try:
         client = _client()
-        client.delete_collection(name=_COLLECTION_NAME)
+        client.delete_collection(name=_EVENT_COLLECTION_NAME)
     except Exception:
         try:
-            collection = _collection()
+            collection = _collection(_EVENT_COLLECTION_NAME)
             collection.delete(where={})
         except Exception:
             return
     try:
-        _collection()
+        _collection(_EVENT_COLLECTION_NAME)
+    except Exception:
+        return
+
+
+def reset_memory_chunk_collection() -> None:
+    if chromadb is None:
+        return
+    try:
+        client = _client()
+        client.delete_collection(name=_MEMORY_CHUNK_COLLECTION_NAME)
+    except Exception:
+        try:
+            collection = _collection(_MEMORY_CHUNK_COLLECTION_NAME)
+            collection.delete(where={})
+        except Exception:
+            return
+    try:
+        _collection(_MEMORY_CHUNK_COLLECTION_NAME)
     except Exception:
         return
 
@@ -146,11 +204,27 @@ def query_event_ids(
     if chromadb is None:
         return []
     try:
-        collection = _collection()
+        collection = _collection(_EVENT_COLLECTION_NAME)
         result = collection.query(
             query_embeddings=[embedding],
             n_results=limit,
             where=where,
+            include=["ids"],
+        )
+        ids = result.get("ids", [[]])[0]
+        return [int(value) for value in ids if str(value).isdigit()]
+    except Exception:
+        return []
+
+
+def query_memory_chunk_ids(embedding: list[float], *, limit: int = 80) -> list[int]:
+    if chromadb is None:
+        return []
+    try:
+        collection = _collection(_MEMORY_CHUNK_COLLECTION_NAME)
+        result = collection.query(
+            query_embeddings=[embedding],
+            n_results=limit,
             include=["ids"],
         )
         ids = result.get("ids", [[]])[0]

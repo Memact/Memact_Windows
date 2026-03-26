@@ -426,6 +426,12 @@ def init_db() -> None:
             for row in rows:
                 _sync_event_fts(connection, int(row["id"]))
         connection.commit()
+    try:
+        from core.retention import ensure_retention_schema
+
+        ensure_retention_schema()
+    except Exception:
+        pass
 
 
 def append_event(
@@ -528,6 +534,12 @@ def append_event(
             source=source,
         )
         upsert_events([event])
+    except Exception:
+        pass
+    try:
+        from core.retention import schedule_memory_promotion
+
+        schedule_memory_promotion(event_id)
     except Exception:
         pass
     return event_id
@@ -783,12 +795,29 @@ def lexical_candidates(
 
 def clear_memory() -> None:
     with get_connection() as connection:
+        for table_name in ("memory_chunks_fts",):
+            try:
+                connection.execute(f"DELETE FROM {table_name}")
+            except Exception:
+                pass
+        for table_name in ("memory_events", "memory_chunks", "retained_memories", "memory_backfill_state"):
+            try:
+                connection.execute(f"DELETE FROM {table_name}")
+            except Exception:
+                pass
         connection.execute("DELETE FROM session_links")
         connection.execute("DELETE FROM event_sessions")
         connection.execute("DELETE FROM sessions")
         connection.execute("DELETE FROM events_fts")
         connection.execute("DELETE FROM events")
         connection.commit()
+    try:
+        from core.vector_store import reset_collection, reset_memory_chunk_collection
+
+        reset_collection()
+        reset_memory_chunk_collection()
+    except Exception:
+        pass
 
 
 def _session_row_to_dict(row: sqlite3.Row | dict) -> dict:
