@@ -197,6 +197,45 @@ function PrivacyDialog({ onClose }) {
   )
 }
 
+function ClearMemoriesDialog({ clearing, errorMessage, onConfirm, onClose }) {
+  return (
+    <GlassDialog
+      title="Clear all memories"
+      subtitle="This removes all saved browser memories from the local Memact extension on this device. This cannot be undone."
+      onClose={clearing ? undefined : onClose}
+      footer={
+        <>
+          <button
+            type="button"
+            className="dialog-secondary-button"
+            onClick={onClose}
+            disabled={clearing}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="dialog-primary-button dialog-primary-button--danger"
+            onClick={onConfirm}
+            disabled={clearing}
+          >
+            {clearing ? 'Clearing...' : 'Clear all memories'}
+          </button>
+        </>
+      }
+    >
+      <div className="helper-card">
+        <span className="helper-title">LOCAL RESET</span>
+        <p className="helper-text">
+          Memact will wipe the captured events, sessions, embeddings, and saved answers stored by
+          the extension. Your browser itself is not uninstalled.
+        </p>
+      </div>
+      {errorMessage ? <p className="dialog-error">{errorMessage}</p> : null}
+    </GlassDialog>
+  )
+}
+
 function BrowserSetupDialog({ browserInfo, extensionDetected, extensionReady, onClose }) {
   const metaText = extensionDetected
     ? extensionReady
@@ -274,6 +313,12 @@ function MemoryDetailDialog({ result, onOpen, onClose }) {
     result.duplicateCount > 1 ? { label: 'Similar captures', value: `${result.duplicateCount}` } : null,
   ].filter(Boolean)
   const factItems = Array.isArray(result.factItems) ? result.factItems : []
+  const extractedContext = [
+    result.contextSubject ? { label: 'Subject', value: result.contextSubject } : null,
+    result.contextEntities.length ? { label: 'Entities', value: result.contextEntities.join(' | ') } : null,
+    result.contextTopics.length ? { label: 'Topics', value: result.contextTopics.join(' | ') } : null,
+  ].filter(Boolean)
+  const showExtractedContext = extractedContext.length && result.pageType !== 'search'
 
   const sessionLabel =
     result.session?.label ||
@@ -281,8 +326,13 @@ function MemoryDetailDialog({ result, onOpen, onClose }) {
     result.raw?.episode_label ||
     ''
 
-  const fullText = String(result.fullText || '').trim()
+  const fullText = String(result.fullText || result.rawFullText || '').trim()
+  const rawFullText = String(result.rawFullText || '').trim()
   const snippetText = String(result.snippet || '').trim()
+  const displayUrl = String(result.displayUrl || result.url || '').trim()
+  const searchResults = Array.isArray(result.searchResults) ? result.searchResults : []
+  const primaryTextHeading = result.pageType === 'search' ? 'CAPTURED PAGE VIEW' : 'FULL EXTRACTED TEXT'
+  const showRawCapturedText = rawFullText && rawFullText !== fullText
 
   return (
     <GlassDialog
@@ -313,7 +363,7 @@ function MemoryDetailDialog({ result, onOpen, onClose }) {
         </div>
       ) : null}
 
-      {result.url ? <p className="browser-url">{result.url}</p> : null}
+      {displayUrl ? <p className="browser-url">{displayUrl}</p> : null}
 
       {result.structuredSummary ? (
         <div className="memory-detail-body">
@@ -336,6 +386,34 @@ function MemoryDetailDialog({ result, onOpen, onClose }) {
         </div>
       ) : null}
 
+      {showExtractedContext ? (
+        <div className="memory-detail-body">
+          <div className="refine-heading">EXTRACTED CONTEXT</div>
+          <div className="answer-detail-grid">
+            {extractedContext.map((item) => (
+              <div key={`${item.label}-${item.value}`} className="answer-detail-card">
+                <span className="answer-detail-label">{item.label}</span>
+                <span className="answer-detail-value">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {searchResults.length ? (
+        <div className="memory-detail-body">
+          <div className="refine-heading">CAPTURED RESULTS</div>
+          <div className="memory-result-list">
+            {searchResults.map((item, index) => (
+              <div key={`${index + 1}-${item}`} className="memory-result-item">
+                <span className="memory-result-index">{index + 1}.</span>
+                <span className="memory-result-copy">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {snippetText && snippetText !== fullText ? (
         <div className="memory-detail-body">
           <div className="refine-heading">SAVED SNIPPET</div>
@@ -345,12 +423,19 @@ function MemoryDetailDialog({ result, onOpen, onClose }) {
 
       {fullText ? (
         <div className="memory-detail-body">
-          <div className="refine-heading">FULL EXTRACTED TEXT</div>
+          <div className="refine-heading">{primaryTextHeading}</div>
           <pre className="memory-detail-text">{fullText}</pre>
         </div>
       ) : (
         <p className="dialog-body">No full extracted text is available for this memory yet.</p>
       )}
+
+      {showRawCapturedText ? (
+        <div className="memory-detail-body">
+          <div className="refine-heading">RAW CAPTURED TEXT</div>
+          <pre className="memory-detail-text">{rawFullText}</pre>
+        </div>
+      ) : null}
     </GlassDialog>
   )
 }
@@ -367,6 +452,14 @@ function OverflowMenu({ style, onClose, onAction }) {
       </button>
       <button type="button" className="menu-item" onClick={() => onAction('privacy')}>
         Privacy Notice
+      </button>
+      <div className="menu-separator" aria-hidden="true" />
+      <button
+        type="button"
+        className="menu-item menu-item--danger"
+        onClick={() => onAction('clear-memories')}
+      >
+        Clear all memories
       </button>
     </div>
   )
@@ -394,6 +487,8 @@ export default function Search({ extension }) {
   const [lastSubmittedQuery, setLastSubmittedQuery] = useState('')
   const [setupPromptShown, setSetupPromptShown] = useState(false)
   const [setupDialogAutoOpened, setSetupDialogAutoOpened] = useState(false)
+  const [clearingMemories, setClearingMemories] = useState(false)
+  const [clearMemoriesError, setClearMemoriesError] = useState('')
   const search = useSearch(extension, activeTimeFilter)
   const menuButtonRef = useRef(null)
   const menuRef = useRef(null)
@@ -465,7 +560,7 @@ export default function Search({ extension }) {
       : `No local matches for "${lastSubmittedQuery}"`
     : 'Local matches'
   const resultsSubtitle = resultCount
-    ? 'Sorted by match strength and recency. Click any card to open the full saved memory.'
+    ? 'Sorted by context match and recency. Click any card to open the full saved memory.'
     : 'Try a different phrase, app name, or site.'
 
   const showBackControls = Boolean(search.query.trim()) || resultsMode
@@ -575,6 +670,45 @@ export default function Search({ extension }) {
     if (action === 'privacy') {
       setActiveDialog('privacy')
       return
+    }
+    if (action === 'clear-memories') {
+      setClearMemoriesError('')
+      setActiveDialog('clear-memories')
+    }
+  }
+
+  const handleClearMemories = async () => {
+    if (clearingMemories) {
+      return
+    }
+
+    if (!extension?.detected || typeof extension.clearAllData !== 'function') {
+      setClearMemoriesError('')
+      setActiveDialog('setup')
+      return
+    }
+
+    setClearingMemories(true)
+    setClearMemoriesError('')
+
+    try {
+      const response = await extension.clearAllData()
+      if (!response || response.error || response.ok === false) {
+        throw new Error(response?.error || 'Could not clear local memories.')
+      }
+
+      search.clearHistory()
+      search.clearResults()
+      search.setQuery('')
+      setResultsMode(false)
+      setSelectedResult(null)
+      setLastSubmittedQuery('')
+      setActiveTimeFilter(null)
+      setActiveDialog(null)
+    } catch (error) {
+      setClearMemoriesError(String(error?.message || error || 'Could not clear local memories.'))
+    } finally {
+      setClearingMemories(false)
     }
   }
 
@@ -741,6 +875,19 @@ export default function Search({ extension }) {
       ) : null}
 
       {activeDialog === 'privacy' ? <PrivacyDialog onClose={() => setActiveDialog(null)} /> : null}
+      {activeDialog === 'clear-memories' ? (
+        <ClearMemoriesDialog
+          clearing={clearingMemories}
+          errorMessage={clearMemoriesError}
+          onConfirm={handleClearMemories}
+          onClose={() => {
+            if (!clearingMemories) {
+              setClearMemoriesError('')
+              setActiveDialog(null)
+            }
+          }}
+        />
+      ) : null}
       {selectedResult ? (
         <MemoryDetailDialog
           result={selectedResult}

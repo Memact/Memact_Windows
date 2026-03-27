@@ -151,9 +151,17 @@ function buildSessionLabel(event) {
   return `${labelBase || application} · ${hourBucket}h`;
 }
 
+function buildSessionLabelText(event) {
+  const application = normalizeString(event.application) || "browser";
+  const host = deriveHostname(event.url);
+  const hourBucket = new Date(event.occurred_at || Date.now()).toISOString().slice(0, 13);
+  const labelBase = [application, host].filter(Boolean).join(" - ");
+  return `${labelBase || application} - ${hourBucket}h`;
+}
+
 async function upsertSessionFromEvent(event) {
   const db = await getDb();
-  const label = buildSessionLabel(event);
+  const label = buildSessionLabelText(event);
   const keyphrases = JSON.parse(event.keyphrases_json || "[]");
   const embedding = JSON.parse(event.embedding_json || "[]");
 

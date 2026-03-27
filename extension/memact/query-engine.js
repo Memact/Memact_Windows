@@ -1,3 +1,10 @@
+import {
+  buildSuggestionQueries,
+  extractContextProfile,
+  shouldSkipCaptureProfile,
+} from "./context-pipeline.js";
+import { classifyLocalPage } from "./page-intelligence.js";
+
 const SESSION_TIMEOUT_MS = 25 * 60 * 1000;
 const SESSION_MAX_GAP_MS = 45 * 60 * 1000;
 const SESSION_SEMANTIC_THRESHOLD = 0.18;
@@ -241,6 +248,26 @@ function shortLabel(value, maxLength = 48) {
   return `${text.slice(0, maxLength - 1).trim()}...`;
 }
 
+function quoteLabel(value) {
+  const text = normalizeText(value, 120).replace(/^["']|["']$/g, "");
+  return text ? `"${text}"` : `"this session"`;
+}
+
+function pluralize(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function ensureSentence(value) {
+  const text = normalizeText(value, 320).replace(/\s+/g, " ").trim();
+  if (!text) {
+    return "";
+  }
+  if (/[.!?]$/.test(text)) {
+    return text;
+  }
+  return `${text}.`;
+}
+
 function normalizeEvent(rawEvent) {
   const application = cleanAppName(rawEvent.application);
   const domain = hostnameFromUrl(rawEvent.url);
@@ -257,23 +284,50 @@ function normalizeEvent(rawEvent) {
   const embedding = parseEmbedding(rawEvent);
   const occurredAt = String(rawEvent.occurred_at || "");
   const timestamp = Date.parse(occurredAt);
+  const contextProfile = extractContextProfile({
+    url: rawEvent.url,
+    application,
+    pageTitle: title,
+    description: rawEvent.description,
+    h1: rawEvent.h1,
+    selection: rawEvent.selection,
+    snippet,
+    fullText,
+    keyphrases,
+    context_profile_json: rawEvent.context_profile_json,
+  });
 
   return {
     ...rawEvent,
     application,
     domain,
-    title,
-    snippet,
-    full_text: fullText,
-    keyphrases,
+    title: contextProfile.title || title,
+    snippet: contextProfile.snippet || snippet,
+    full_text: contextProfile.fullText || fullText,
+    display_url: contextProfile.displayUrl || canonicalUrl(rawEvent.url || ""),
+    display_full_text: contextProfile.displayFullText || contextProfile.fullText || fullText,
+    raw_full_text: fullText,
+    search_results: contextProfile.searchResults || [],
+    keyphrases: contextProfile.keyphrases?.length ? contextProfile.keyphrases : keyphrases,
     embedding,
     occurred_at: occurredAt,
     timestamp: Number.isFinite(timestamp) ? timestamp : 0,
-    titleTokens: meaningfulTokens(title),
+    titleTokens: meaningfulTokens(contextProfile.title || title),
+    page_type: contextProfile.pageType,
+    page_type_label: contextProfile.pageTypeLabel,
+    structured_summary: contextProfile.structuredSummary,
+    display_excerpt: contextProfile.displayExcerpt,
+    fact_items: contextProfile.factItems || [],
+    context_subject: contextProfile.subject || "",
+    context_entities: contextProfile.entities || [],
+    context_topics: contextProfile.topics || [],
+    context_text: contextProfile.contextText || "",
+    context_profile: contextProfile,
+    local_judge: contextProfile.localJudge || null,
     canonicalFingerprint: [
       canonicalUrl(rawEvent.url || ""),
-      title.toLowerCase(),
-      snippet.slice(0, 120).toLowerCase(),
+      (contextProfile.title || title).toLowerCase(),
+      (contextProfile.displayExcerpt || contextProfile.snippet || snippet).slice(0, 120).toLowerCase(),
     ].filter(Boolean).join("|"),
   };
 }
@@ -889,13 +943,13 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
   const normalizedQueryLower = normalizedText.toLowerCase();
   const now = Date.now();
 
-  return events
-    .map((event) => {
+  const scored = events.map((event) => {
       const semantic = event.embedding.length ? cosineSimilarity(queryEmbedding, event.embedding) : 0;
       const titleLower = String(event.title || "").toLowerCase();
       const snippetLower = String(event.snippet || "").toLowerCase();
       const urlLower = canonicalUrl(event.url || "");
       const fullTextLower = String(event.full_text || "").toLowerCase();
+      const contextLower = String(event.context_text || "").toLowerCase();
       const lexical = tokenCoverage(tokens, [
         event.title,
         event.snippet,
@@ -904,32 +958,49 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
         event.domain,
         event.application,
         event.keyphrases.join(" "),
+        event.context_text,
       ].join(" "));
       const titleBoost = tokenCoverage(tokens, event.title);
       const keyphraseBoost = tokenCoverage(tokens, event.keyphrases.join(" "));
       const fullTextBoost = tokenCoverage(tokens, event.full_text);
+      const subjectBoost = tokenCoverage(tokens, event.context_subject);
+      const entityBoost = tokenCoverage(tokens, event.context_entities.join(" "));
+      const topicBoost = tokenCoverage(tokens, event.context_topics.join(" "));
+      const factBoost = tokenCoverage(
+        tokens,
+        (event.fact_items || []).map((item) => `${item.label} ${item.value}`).join(" ")
+      );
+      const contextBoost = tokenCoverage(tokens, event.context_text);
       const exactTitleMatch = normalizedQueryLower && titleLower.includes(normalizedQueryLower) ? 1 : 0;
       const exactUrlMatch = normalizedQueryLower && urlLower.includes(normalizedQueryLower) ? 1 : 0;
       const exactSnippetMatch = normalizedQueryLower && snippetLower.includes(normalizedQueryLower) ? 1 : 0;
       const exactBodyMatch = normalizedQueryLower && fullTextLower.includes(normalizedQueryLower) ? 1 : 0;
+      const exactSubjectMatch =
+        normalizedQueryLower && contextLower.includes(normalizedQueryLower) ? 1 : 0;
       const domainBoost = domainHint && event.domain === domainHint ? 1 : 0;
       const appBoost = appHint && event.application.toLowerCase().includes(appHint) ? 1 : 0;
       const recencyDays = event.timestamp ? (now - event.timestamp) / (1000 * 60 * 60 * 24) : 999;
       const recencyBoost = event.timestamp ? Math.exp((-Math.log(2) * recencyDays) / 3) : 0;
-      const searchResultsPenalty = isSearchResultsPage(event) ? 0.18 : 0;
+      const searchResultsPenalty = isSearchResultsPage(event) ? 0.34 : 0;
       const score =
-        semantic * 0.24 +
-        lexical * 0.18 +
+        semantic * 0.2 +
+        lexical * 0.12 +
         titleBoost * 0.16 +
-        keyphraseBoost * 0.06 +
-        fullTextBoost * 0.08 +
-        exactTitleMatch * 0.12 +
-        exactUrlMatch * 0.06 +
-        exactSnippetMatch * 0.04 +
-        exactBodyMatch * 0.04 +
-        domainBoost * 0.03 +
+        keyphraseBoost * 0.05 +
+        fullTextBoost * 0.05 +
+        subjectBoost * 0.08 +
+        entityBoost * 0.06 +
+        topicBoost * 0.05 +
+        factBoost * 0.05 +
+        contextBoost * 0.08 +
+        exactTitleMatch * 0.1 +
+        exactSubjectMatch * 0.08 +
+        exactUrlMatch * 0.04 +
+        exactSnippetMatch * 0.03 +
+        exactBodyMatch * 0.03 +
+        domainBoost * 0.02 +
         appBoost * 0.02 +
-        recencyBoost * 0.25 -
+        recencyBoost * 0.24 -
         searchResultsPenalty;
       return {
         ...event,
@@ -938,7 +1009,26 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
         recency_score: recencyBoost,
         exact_title_match: exactTitleMatch,
         exact_url_match: exactUrlMatch,
+        context_score: contextBoost,
         score,
+      };
+    });
+
+  const strongestDirectScore = scored.reduce((max, event) => {
+    return isSearchResultsPage(event) ? max : Math.max(max, event.score);
+  }, 0);
+
+  return scored
+    .map((event) => {
+      if (!isSearchResultsPage(event)) {
+        return event;
+      }
+      const demotion =
+        strongestDirectScore && strongestDirectScore >= event.score - 0.06 ? 0.16 : 0;
+      return {
+        ...event,
+        score: event.score - demotion,
+        search_page_demotion: demotion,
       };
     })
     .filter(
@@ -946,8 +1036,79 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
         event.score >= 0.14 ||
         event.lexical_score >= 0.22 ||
         event.exact_title_match > 0 ||
-        event.exact_url_match > 0
+        event.exact_url_match > 0 ||
+        event.context_score >= 0.26
     )
+    .sort((left, right) => right.score - left.score || right.timestamp - left.timestamp);
+}
+
+function rerankWithSessionContext(events) {
+  const sessionSignals = new Map();
+  for (const event of events) {
+    if (!event.session_id) {
+      continue;
+    }
+    const current = sessionSignals.get(event.session_id) || { count: 0, topScore: 0, topRecency: 0 };
+    current.count += 1;
+    current.topScore = Math.max(current.topScore, event.score);
+    current.topRecency = Math.max(current.topRecency, event.recency_score || 0);
+    sessionSignals.set(event.session_id, current);
+  }
+
+  return events
+    .map((event) => {
+      const signal = sessionSignals.get(event.session_id);
+      if (!signal) {
+        return event;
+      }
+      const sessionBonus = Math.min(
+        0.12,
+        Math.max(0, signal.count - 1) * 0.028 +
+          Math.max(0, signal.topScore - 0.2) * 0.08 +
+          signal.topRecency * 0.02
+      );
+      return {
+        ...event,
+        session_context_bonus: sessionBonus,
+        score: event.score + sessionBonus,
+      };
+    })
+    .sort((left, right) => right.score - left.score || right.timestamp - left.timestamp);
+}
+
+async function rerankWithLocalJudge(events, embedText, cosineSimilarity, limit = 48) {
+  const leading = events.slice(0, limit);
+  const trailing = events.slice(limit);
+
+  const judged = await Promise.all(
+    leading.map(async (event) => {
+      const localJudge =
+        event.local_judge ||
+        (await classifyLocalPage(event.context_profile || event, {
+          embedText,
+          cosineSimilarity,
+        }));
+
+      let adjustment = 0;
+      if (localJudge?.qualityLabel === "shell") {
+        adjustment = -0.34;
+      } else if (localJudge?.qualityLabel === "search_results") {
+        adjustment = -0.08;
+      } else if (localJudge?.qualityLabel === "meaningful") {
+        adjustment = 0.05;
+      }
+
+      return {
+        ...event,
+        local_judge: localJudge,
+        local_quality_adjustment: adjustment,
+        score: event.score + adjustment,
+      };
+    })
+  );
+
+  return [...judged, ...trailing]
+    .filter((event) => !event.local_judge?.shouldSkip)
     .sort((left, right) => right.score - left.score || right.timestamp - left.timestamp);
 }
 
@@ -1023,14 +1184,14 @@ function buildSessionSummary(session) {
   if (session.foundationalEvents?.length) {
     parts.push(`${session.foundationalEvents.length} foundational`);
   }
-  return parts.join("  ·  ");
+  return parts.join(" - ");
 }
 
 function buildSessionPrompts(session) {
   if (!session) {
     return [];
   }
-  const label = shortLabel(session.label);
+  const label = quoteLabel(shortLabel(session.label));
   const prompts = [];
   if (session.upstream?.length) {
     prompts.push(`What led to ${label}?`);
@@ -1045,16 +1206,16 @@ function buildSessionPrompts(session) {
 }
 
 function buildRelatedQueries(primaryEvent, primarySession, operator) {
-  const queries = [];
-  for (const phrase of primaryEvent?.keyphrases || []) {
-    queries.push(`Find ${phrase}`);
-  }
-  if (primaryEvent?.domain) {
-    queries.push(`Show activity from ${primaryEvent.domain}`);
-  }
-  if (primaryEvent?.application) {
-    queries.push(`What was I doing in ${toTitleCase(primaryEvent.application)}?`);
-  }
+  const queries = buildSuggestionQueries({
+    title: primaryEvent?.title,
+    url: primaryEvent?.url,
+    application: primaryEvent?.application,
+    pageType: primaryEvent?.page_type,
+    entities: primaryEvent?.context_entities || [],
+    topics: primaryEvent?.context_topics || [],
+    subject: primaryEvent?.context_subject || "",
+    keyphrases: primaryEvent?.keyphrases || [],
+  }).map((item) => item.query);
   if (primarySession && operator === "match") {
     queries.push(...buildSessionPrompts(primarySession));
   }
@@ -1062,15 +1223,21 @@ function buildRelatedQueries(primaryEvent, primarySession, operator) {
 }
 
 function decorateEvent(event, session) {
-  const pageType = inferPageType(event);
-  const factItems = buildStructuredFacts(event, pageType);
+  const pageType = event.page_type || inferPageType(event);
+  const factItems = Array.isArray(event.fact_items) && event.fact_items.length
+    ? event.fact_items
+    : buildStructuredFacts(event, pageType);
   return {
     ...event,
     page_type: pageType,
-    page_type_label: pageTypeLabel(pageType),
-    structured_summary: buildStructuredSummary(event, pageType, factItems),
+    page_type_label: event.page_type_label || pageTypeLabel(pageType),
+    structured_summary: event.structured_summary || buildStructuredSummary(event, pageType, factItems),
     fact_items: factItems,
-    display_excerpt: buildDisplayExcerpt(event, pageType),
+    display_excerpt: event.display_excerpt || buildDisplayExcerpt(event, pageType),
+    display_url: event.display_url || canonicalUrl(event.url || ""),
+    display_full_text: event.display_full_text || event.full_text || "",
+    raw_full_text: event.raw_full_text || event.full_text || "",
+    search_results: Array.isArray(event.search_results) ? event.search_results : [],
     session: session
       ? {
           id: session.id,
@@ -1113,8 +1280,8 @@ function buildMatchAnswer(query, results, primarySession) {
       results: [],
       answer: {
         overview: "",
-        answer: `No strong local match found for "${query}".`,
-        summary: "Try a different phrase, or search by app or site.",
+        answer: `No strong local match was found for "${query}".`,
+        summary: "Try another phrase, or search by app or site.",
         detailItems: [],
         signals: [],
         sessionSummary: "",
@@ -1130,18 +1297,22 @@ function buildMatchAnswer(query, results, primarySession) {
     primary.application ? { label: "App", value: toTitleCase(primary.application) } : null,
     primary.domain ? { label: "Site", value: primary.domain } : null,
     primary.occurred_at ? { label: "Captured", value: primary.occurred_at } : null,
-    { label: "Evidence", value: `${evidenceCount} matched moments` },
+    { label: "Evidence", value: `${evidenceCount} matching captures` },
   ].filter(Boolean);
 
-  let summary = primary.snippet || "This is one of the clearest local matches.";
+  let summary = ensureSentence(
+    primary.structured_summary ||
+      (primary.domain ? `Saved page from ${primary.domain}` : "") ||
+      "This is a strong local match"
+  );
   if (primarySession) {
-    summary = `${summary} Captured during ${primarySession.label}.`;
+    summary = `${summary} The most relevant match came from the session ${quoteLabel(primarySession.label)}.`;
   }
 
   return {
     results,
     answer: {
-      overview: `Closest match for "${query}"`,
+      overview: `Top local match for "${query}"`,
       answer: primary.title,
       summary: compactText(summary, 280),
       detailItems,
@@ -1186,17 +1357,18 @@ function buildOperatorAnswer(operator, anchorLabel, anchorSession, relatedSessio
     ...relatedSessions.map((session) => [session.id, session]),
   ]);
   const results = buildSessionResults(relatedSessions.map((session) => session.id), sessionsById, rankedEvents, limit);
+  const quotedAnchor = quoteLabel(anchorLabel);
 
   const summaries = {
     before: relatedSessions.length
-      ? `I found ${relatedSessions.length} earlier related session${relatedSessions.length === 1 ? "" : "s"} before ${anchorLabel}.`
-      : `I found ${anchorLabel}, but there is no clear earlier session yet.`,
+      ? `Found ${pluralize(relatedSessions.length, "related earlier session")} before ${quotedAnchor}.`
+      : `No clear earlier session was found before ${quotedAnchor}.`,
     after: relatedSessions.length
-      ? `I found ${relatedSessions.length} related session${relatedSessions.length === 1 ? "" : "s"} after ${anchorLabel}.`
-      : `I found ${anchorLabel}, but there is no clear follow-up session yet.`,
+      ? `Found ${pluralize(relatedSessions.length, "related session")} after ${quotedAnchor}.`
+      : `No clear follow-up session was found after ${quotedAnchor}.`,
     connected: relatedSessions.length
-      ? `I found ${relatedSessions.length} related session${relatedSessions.length === 1 ? "" : "s"} connected to ${anchorLabel}.`
-      : `I found ${anchorLabel}, but not much else is clearly connected yet.`,
+      ? `Found ${pluralize(relatedSessions.length, "related session")} connected to ${quotedAnchor}.`
+      : `No strong connected session was found for ${quotedAnchor}.`,
   };
 
   return {
@@ -1204,12 +1376,12 @@ function buildOperatorAnswer(operator, anchorLabel, anchorSession, relatedSessio
     answer: {
       overview:
         operator === "before"
-          ? `What led to "${anchorLabel}"`
+          ? `What led to ${quotedAnchor}`
           : operator === "after"
-            ? `What happened after "${anchorLabel}"`
-            : `Everything connected to "${anchorLabel}"`,
+            ? `What happened after ${quotedAnchor}`
+            : `Everything connected to ${quotedAnchor}`,
       answer: relatedSessions[0]?.label || anchorSession?.label || anchorLabel,
-      summary: summaries[operator],
+      summary: ensureSentence(summaries[operator]),
       detailItems: [
         { label: "Anchor", value: anchorLabel },
         {
@@ -1239,8 +1411,8 @@ function buildAggregateAnswer(queryLabel, label, sessions, rankedEvents, limit, 
       overview: kind === "domain" ? `Activity from "${queryLabel}"` : `What you were doing in "${queryLabel}"`,
       answer: label,
       summary: primary
-        ? `I found ${sessions.length} related sessions and ${totalEvents} captured moments. Most recent session: ${primary.label}.`
-        : `I found local activity for ${label}.`,
+        ? `Found ${pluralize(sessions.length, "related session")} and ${pluralize(totalEvents, "captured moment")}. The most recent session is ${quoteLabel(primary.label)}.`
+        : `Found local activity for ${label}.`,
       detailItems: [
         { label: kind === "domain" ? "Site" : "App", value: label },
         { label: "Sessions", value: `${sessions.length}` },
@@ -1264,7 +1436,12 @@ export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText
 
   const events = rawEvents
     .map(normalizeEvent)
-    .filter((event) => event.timestamp && !isInternalMemactEvent(event));
+    .filter(
+      (event) =>
+        event.timestamp &&
+        !isInternalMemactEvent(event) &&
+        !shouldSkipCaptureProfile(event.context_profile || event)
+    );
   if (!events.length) {
     return { results: [], answer: null };
   }
@@ -1277,11 +1454,19 @@ export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText
   }
 
   const operator = detectOperator(normalizedQuery);
-  const rankedEventsAll = dedupeRankedEvents(
+  const initiallyRankedEvents = rerankWithSessionContext(
     await rankEvents(operator.anchor || normalizedQuery, events, embedText, cosineSimilarity, {
       appHint: operator.name === "app" ? operator.anchor : "",
     })
-  ).map((event) => ({
+  );
+
+  const qualityRankedEvents = await rerankWithLocalJudge(
+    initiallyRankedEvents,
+    embedText,
+    cosineSimilarity
+  );
+
+  const rankedEventsAll = dedupeRankedEvents(qualityRankedEvents).map((event) => ({
     ...event,
     session_id: event.session_id || eventToSession.get(event.id) || 0,
   }));

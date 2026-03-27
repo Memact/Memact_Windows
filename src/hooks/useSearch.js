@@ -112,12 +112,15 @@ function normalizeResult(item, index = 0) {
     domain ||
     'Memory'
 
-  const richFullText = normalizeRichText(item?.full_text || item?.fullText)
+  const rawFullText = normalizeRichText(item?.raw_full_text || item?.rawFullText || item?.full_text || item?.fullText)
+  const displayFullText = normalizeRichText(
+    item?.display_full_text || item?.displayFullText || rawFullText
+  )
   const snippet = normalize(
     item?.content_text ||
       item?.snippet ||
       item?.summary_snippet ||
-      richFullText ||
+      displayFullText ||
       item?.searchable_text
   )
 
@@ -136,11 +139,13 @@ function normalizeResult(item, index = 0) {
     id: item?.id || `${index}-${title}`,
     title,
     url,
+    displayUrl: normalize(item?.display_url || item?.displayUrl || url),
     domain,
     application: normalize(item?.application) || 'Browser',
     occurred_at: item?.occurred_at || item?.captured_at || '',
     snippet,
-    fullText: richFullText,
+    fullText: displayFullText,
+    rawFullText,
     keyphrases,
     similarity: Number(item?.similarity || item?.score || 0),
     session: item?.session || item?.episode || null,
@@ -154,6 +159,13 @@ function normalizeResult(item, index = 0) {
     pageTypeLabel: normalize(item?.page_type_label || item?.pageTypeLabel),
     structuredSummary: normalize(item?.structured_summary || item?.structuredSummary),
     displayExcerpt: normalize(item?.display_excerpt || item?.displayExcerpt),
+    contextSubject: normalize(item?.context_subject || item?.contextSubject),
+    contextEntities: Array.isArray(item?.context_entities || item?.contextEntities)
+      ? (item?.context_entities || item?.contextEntities).map((value) => normalize(value)).filter(Boolean)
+      : [],
+    contextTopics: Array.isArray(item?.context_topics || item?.contextTopics)
+      ? (item?.context_topics || item?.contextTopics).map((value) => normalize(value)).filter(Boolean)
+      : [],
     factItems: Array.isArray(item?.fact_items || item?.factItems)
       ? (item?.fact_items || item?.factItems)
           .map((entry) => ({
@@ -161,6 +173,9 @@ function normalizeResult(item, index = 0) {
             value: normalize(entry?.value),
           }))
           .filter((entry) => entry.label && entry.value)
+      : [],
+    searchResults: Array.isArray(item?.search_results || item?.searchResults)
+      ? (item?.search_results || item?.searchResults).map((value) => normalize(value)).filter(Boolean)
       : [],
     raw: item || {},
   }

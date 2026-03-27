@@ -8,6 +8,12 @@ import {
   getStats,
   initDB,
 } from "./db.js";
+import {
+  buildSuggestionQueries,
+  extractContextProfile,
+  shouldSkipCaptureProfile,
+} from "./context-pipeline.js";
+import { classifyLocalPage } from "./page-intelligence.js";
 import { extractKeyphrases } from "./keywords.js";
 import { answerLocalQuery } from "./query-engine.js";
 
@@ -118,19 +124,49 @@ function shouldIgnoreCapturedPage(url, pageTitle = "") {
   }
 }
 
-function buildSearchableText(tabData) {
+function buildSearchableText(tabData, contextProfile = null) {
   const active = tabData.activeContext || {};
   return [
     tabData.browser,
     active.pageTitle,
     active.h1,
     active.description,
+    active.selection,
     tabData.activeTab?.url || "",
     active.snippet,
-    (active.fullText || "").slice(0, 1200)
+    (active.fullText || "").slice(0, 1200),
+    contextProfile?.subject || "",
+    Array.isArray(contextProfile?.entities) ? contextProfile.entities.join(" ") : "",
+    Array.isArray(contextProfile?.topics) ? contextProfile.topics.join(" ") : "",
+    Array.isArray(contextProfile?.factItems)
+      ? contextProfile.factItems.map((item) => `${item.label} ${item.value}`).join(" ")
+      : "",
+    contextProfile?.structuredSummary || "",
+    contextProfile?.contextText || ""
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function mergeUniqueStrings(values, limit = 24) {
+  const seen = new Set();
+  const output = [];
+  for (const value of values) {
+    const normalized = normalizeText(value, 120);
+    if (!normalized) {
+      continue;
+    }
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    output.push(normalized);
+    if (output.length >= limit) {
+      break;
+    }
+  }
+  return output;
 }
 
 function normalizeVector(vector) {
@@ -578,9 +614,67 @@ async function processAndStore(tabData) {
   if (shouldIgnoreCapturedPage(tabData.activeTab?.url || "", pageTitle)) {
     return null;
   }
-  const searchableText = buildSearchableText(tabData);
-  const keyphrases = extractKeyphrases(fullText || snippet);
+  const baseKeyphrases = extractKeyphrases(fullText || snippet);
+  const initialProfile = extractContextProfile({
+    url: tabData.activeTab?.url || "",
+    application: tabData.browser,
+    pageTitle,
+    description: active.description,
+    h1: active.h1,
+    selection: active.selection,
+    snippet,
+    fullText,
+    keyphrases: baseKeyphrases,
+  });
+  const keyphrases = mergeUniqueStrings([
+    ...baseKeyphrases,
+    initialProfile.subject,
+    ...(initialProfile.entities || []),
+    ...(initialProfile.topics || []),
+  ]);
+  const contextProfile = extractContextProfile({
+    url: tabData.activeTab?.url || "",
+    application: tabData.browser,
+    pageTitle,
+    description: active.description,
+    h1: active.h1,
+    selection: active.selection,
+    snippet,
+    fullText,
+    keyphrases,
+    contextProfile: initialProfile,
+  });
+  const localJudge = await classifyLocalPage(contextProfile, {
+    embedText,
+    cosineSimilarity,
+  });
+  contextProfile.localJudge = localJudge;
+  if (shouldSkipCaptureProfile(contextProfile)) {
+    return null;
+  }
+  const searchableText = buildSearchableText(tabData, contextProfile);
   const embedding = await embedText(`${searchableText} ${keyphrases.join(" ")}`.trim());
+  const persistedContextProfile = {
+    version: contextProfile.version,
+    title: contextProfile.title,
+    description: contextProfile.description,
+    h1: contextProfile.h1,
+    selection: contextProfile.selection,
+    url: contextProfile.url,
+    domain: contextProfile.domain,
+    application: contextProfile.application,
+    keyphrases: contextProfile.keyphrases,
+    pageType: contextProfile.pageType,
+    pageTypeLabel: contextProfile.pageTypeLabel,
+    entities: contextProfile.entities,
+    topics: contextProfile.topics,
+    subject: contextProfile.subject,
+    factItems: contextProfile.factItems,
+    structuredSummary: contextProfile.structuredSummary,
+    displayExcerpt: contextProfile.displayExcerpt,
+    contextText: contextProfile.contextText,
+    localJudge: contextProfile.localJudge,
+  };
 
   const event = {
     occurred_at: new Date().toISOString(),
@@ -597,6 +691,7 @@ async function processAndStore(tabData) {
     keyphrases_json: JSON.stringify(keyphrases),
     searchable_text: searchableText,
     embedding_json: JSON.stringify(embedding),
+    context_profile_json: JSON.stringify(persistedContextProfile),
     source: "extension"
   };
 
@@ -693,6 +788,18 @@ function parseKeyphrases(event) {
   } catch {
     return [];
   }
+}
+
+function parseContextProfile(event) {
+  return extractContextProfile({
+    url: event.url,
+    application: event.application,
+    pageTitle: event.window_title,
+    snippet: event.content_text,
+    fullText: event.full_text,
+    keyphrases: parseKeyphrases(event),
+    context_profile_json: event.context_profile_json,
+  });
 }
 
 function suggestionTimeLabel(occurredAt) {
@@ -813,17 +920,24 @@ async function handleSuggestions(query, timeFilter, limit = 6) {
       break;
     }
 
-    const title = normalizeText(event.window_title, 96);
+    const profile = parseContextProfile(event);
+    const title = normalizeText(profile.title || event.window_title, 96);
     const app = normalizeText(event.application, 40);
-    const domain = hostnameFromUrl(event.url);
-    const keyphrases = parseKeyphrases(event).slice(0, 4);
+    const domain = profile.domain || hostnameFromUrl(event.url);
+    const keyphrases = mergeUniqueStrings(
+      [...(profile.keyphrases || []), ...(profile.entities || []), ...(profile.topics || [])],
+      4
+    );
     const haystack = [
       title,
       event.url,
       event.searchable_text,
       keyphrases.join(" "),
       domain,
-      app
+      app,
+      profile.subject || "",
+      profile.structuredSummary || "",
+      profile.contextText || "",
     ]
       .join(" ")
       .toLowerCase();
@@ -836,18 +950,13 @@ async function handleSuggestions(query, timeFilter, limit = 6) {
       }
     }
 
-    if (title) {
-      pushSuggestion(event, `Where did I see "${title}"?`, normalizedQuery ? "Matching memory" : "Recent activity");
-    }
-    if (domain) {
-      pushSuggestion(event, `Show activity from ${domain}`, normalizedQuery ? "Matching memory" : "Recent activity");
-      pushSuggestion(event, `What was I reading on ${domain}?`, normalizedQuery ? "Matching memory" : "Recent activity");
-    }
-    if (app) {
-      pushSuggestion(event, `What was I doing in ${app}?`, normalizedQuery ? "Matching memory" : "Recent activity");
-    }
-    for (const phrase of keyphrases) {
-      pushSuggestion(event, `What did I read about ${phrase}?`, normalizedQuery ? "Matching memory" : "Recent activity");
+    const queryFrames = buildSuggestionQueries(profile, { limit: 6 });
+    for (const suggestion of queryFrames) {
+      pushSuggestion(
+        event,
+        suggestion.query,
+        normalizedQuery ? "Matching memory" : suggestion.category || "Recent activity"
+      );
       if (suggestions.length >= limit) {
         break;
       }

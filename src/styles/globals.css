@@ -718,6 +718,16 @@ button:disabled {
   border-color: var(--accent-border-hover);
 }
 
+.dialog-primary-button--danger {
+  border-color: rgba(255, 102, 102, 0.24);
+  background: rgba(120, 28, 42, 0.46);
+}
+
+.dialog-primary-button--danger:hover {
+  background: rgba(146, 34, 50, 0.58);
+  border-color: rgba(255, 120, 120, 0.34);
+}
+
 .dialog-primary-button:disabled {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
@@ -823,6 +833,10 @@ button:disabled {
   text-align: left;
 }
 
+.menu-item--danger {
+  color: rgba(255, 208, 208, 0.96);
+}
+
 .menu-item:hover {
   background: rgba(255, 255, 255, 0.1);
 }
@@ -886,6 +900,17 @@ button:disabled {
   color: var(--text-soft);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.dialog-error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 102, 102, 0.2);
+  background: rgba(120, 28, 42, 0.24);
+  color: rgba(255, 216, 216, 0.96);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .dialog-footer {
@@ -1000,6 +1025,34 @@ button:disabled {
   color: rgba(255, 255, 255, 0.6);
   font-size: 12px;
   word-break: break-word;
+}
+
+.memory-result-list {
+  display: grid;
+  gap: 10px;
+}
+
+.memory-result-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.memory-result-index {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.memory-result-copy {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .history-scroll,

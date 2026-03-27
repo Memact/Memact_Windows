@@ -56,7 +56,7 @@ function openLabel(url) {
 
 export default function ResultCard({ result, onOpen, onSelect }) {
   const domain = result.domain || domainFromUrl(result.url)
-  const urlLabel = result.url ? openLabel(result.url) : domain || 'Local memory'
+  const urlLabel = compactSnippet(result.displayUrl || (result.url ? openLabel(result.url) : domain), 84) || 'Local memory'
   const appLabel = toTitleCase(result.application || 'Browser')
   const capturedLabel = formatDateTime(result.occurred_at)
   const interaction = result.interactionType ? toTitleCase(result.interactionType) : ''
