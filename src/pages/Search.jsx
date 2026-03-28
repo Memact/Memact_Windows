@@ -9,13 +9,34 @@ const TIME_FILTERS = [
   { label: 'This week', value: 'this week' },
   { label: 'Last week', value: 'last week' },
 ]
-
-const MEMACT_SITE_URL = 'https://www.memact.com'
+const EXPERIMENT_NOTICE_KEY = 'memact.experimental_notice.dismissed'
 
 function normalize(value) {
   return String(value || '')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function getExperimentNoticeDismissed() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    return window.localStorage.getItem(EXPERIMENT_NOTICE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function setExperimentNoticeDismissed(value) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(EXPERIMENT_NOTICE_KEY, value ? 'true' : 'false')
+  } catch {}
 }
 
 function formatHistoryTime(value) {
@@ -44,6 +65,34 @@ function toTitleCase(value) {
 function openExternal(url) {
   if (!url) return
   window.open(url, '_blank', 'noreferrer')
+}
+
+function downloadExtensionPackage() {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const link = document.createElement('a')
+  link.href = '/memact-extension.zip'
+  link.download = 'memact-extension.zip'
+  link.rel = 'noreferrer'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+async function copyTextValue(value) {
+  const text = normalize(value)
+  if (!text || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+    return false
+  }
+
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function GlassDialog({ title, subtitle, children, footer, onClose }) {
@@ -128,6 +177,28 @@ function PrivacyDialog({ onClose }) {
   )
 }
 
+function ExperimentalNotice({ onClose }) {
+  return (
+    <div className="experiment-banner" role="status" aria-live="polite">
+      <div className="experiment-banner__copy">
+        <span className="experiment-banner__eyebrow">EXPERIMENTAL</span>
+        <p className="experiment-banner__text">
+          Memact is highly experimental. Captures, classifications, and search results can be
+          incomplete, cluttered, or wrong. Double-check anything important.
+        </p>
+      </div>
+      <button
+        type="button"
+        className="experiment-banner__close"
+        aria-label="Dismiss experimental notice"
+        onClick={onClose}
+      >
+        x
+      </button>
+    </div>
+  )
+}
+
 function ClearMemoriesDialog({ clearing, errorMessage, onConfirm, onClose }) {
   return (
     <GlassDialog
@@ -168,26 +239,59 @@ function ClearMemoriesDialog({ clearing, errorMessage, onConfirm, onClose }) {
 }
 
 function BrowserSetupDialog({ browserInfo, mode, extensionDetected, extensionReady, onClose }) {
+  const [copiedState, setCopiedState] = useState('')
   const isPhoneMode = browserInfo.mobile
+  const isSupportedDesktopBrowser = !isPhoneMode && browserInfo.extensionCapable
   const needsDesktopSetup = mode === 'bridge-required'
   const isDesktopFallback = !isPhoneMode && mode === 'web-fallback'
+  const unsupportedDesktop = !isPhoneMode && !browserInfo.extensionCapable
+  const extensionsUrl = browserInfo.extensionsUrl || 'edge://extensions/'
+  const packageFileLabel = 'memact-extension.zip'
+  const packageFolderLabel = 'Extracted folder'
+  const packageFolderHint =
+    'Choose the folder you extracted from the zip. It should directly contain manifest.json.'
+  const setupSteps = [
+    `1. Download and extract ${packageFileLabel}.`,
+    `2. Open ${extensionsUrl} in ${browserInfo.name}.`,
+    '3. Turn on Developer mode.',
+    '4. Click Load unpacked.',
+    '5. Select the extracted folder.',
+    '6. Reload this website.',
+  ]
+  const setupStepsText = setupSteps.join('\n')
 
   const title = isPhoneMode
-    ? 'Phone browser mode'
-    : needsDesktopSetup
-      ? 'Connect your browser'
-      : 'Browser support'
+    ? 'Not supported on phone browsers'
+    : unsupportedDesktop
+      ? 'Browser not supported'
+      : extensionDetected
+        ? 'Browser connected'
+        : 'Install Browser Extension'
   const subtitle = isPhoneMode
-    ? 'Memact now fits on phone browsers too. Saved local web memories stay on this device, while automatic browsing capture still belongs on desktop Edge.'
-    : needsDesktopSetup
-      ? 'Set up the desktop Edge extension once, then Memact can capture and search browser memories automatically on this device.'
-      : 'Memact is running in local web mode here. Automatic browser capture is still set up through desktop Edge.'
-  const helperTitle = isPhoneMode ? 'PHONE BROWSER' : needsDesktopSetup ? 'DESKTOP EDGE' : 'LOCAL WEB MODE'
+    ? 'Memact works on phone browsers for local search, but automatic browser capture is not available there. Finish extension setup on a desktop Chromium browser.'
+    : unsupportedDesktop
+      ? `${browserInfo.name} is not supported for the manual Memact extension install flow yet. Use desktop Edge, Chrome, Brave, Opera, or Vivaldi.`
+      : extensionDetected
+        ? extensionReady
+          ? 'The Memact extension is already connected to this page and ready.'
+          : 'The Memact extension is detected. Local memory is still preparing.'
+        : needsDesktopSetup
+          ? `Set up the Memact extension once in ${browserInfo.name}, then Memact can capture and search browser memories automatically on this device.`
+          : 'This browser is ready for the manual Memact extension install flow whenever you want automatic capture.'
+  const helperTitle = isPhoneMode
+    ? 'PHONE MODE'
+    : unsupportedDesktop
+      ? 'DESKTOP REQUIRED'
+      : extensionDetected
+        ? 'CONNECTED'
+        : 'MANUAL INSTALL'
   const helperText = isPhoneMode
-    ? 'Phone browsers can open and search local web memories here. For automatic background capture, continue on desktop Edge.'
-    : needsDesktopSetup
-      ? 'Open memact.com, then finish the Edge extension setup there if you want automatic browser memory on desktop.'
-      : 'This browser can open the Memact UI and local web memories, but automatic capture is not enabled here.'
+    ? 'Keep using Memact here for local phone browsing search. For automatic capture, continue on desktop and load the extension manually.'
+    : unsupportedDesktop
+      ? 'Automatic browser capture currently needs a supported desktop Chromium browser.'
+      : extensionDetected
+        ? 'Memact can now talk to the browser extension on this page.'
+        : 'Download the Memact extension zip, extract it, then choose the extracted folder in Load unpacked.'
 
   const metaText = extensionDetected
     ? extensionReady
@@ -195,9 +299,21 @@ function BrowserSetupDialog({ browserInfo, mode, extensionDetected, extensionRea
       : 'Connected to this page. Local memory is still preparing.'
     : isPhoneMode
       ? 'Running locally in phone browser mode.'
-      : needsDesktopSetup
-        ? 'Desktop Edge setup is recommended for automatic capture.'
-        : 'Running locally in web fallback mode.'
+      : unsupportedDesktop
+        ? 'Manual extension install is not supported in this browser.'
+        : 'Manual unpacked extension install is available in this browser.'
+
+  const handleCopy = async (kind) => {
+    const ok = await copyTextValue(kind === 'steps' ? setupStepsText : extensionsUrl)
+    if (!ok) {
+      setCopiedState('')
+      return
+    }
+    setCopiedState(kind)
+    window.setTimeout(() => {
+      setCopiedState((current) => (current === kind ? '' : current))
+    }, 1800)
+  }
 
   return (
     <GlassDialog
@@ -206,13 +322,22 @@ function BrowserSetupDialog({ browserInfo, mode, extensionDetected, extensionRea
       onClose={onClose}
       footer={
         <>
-          {!isPhoneMode ? (
+          {isSupportedDesktopBrowser && !extensionDetected ? (
             <button
               type="button"
               className="dialog-secondary-button"
-              onClick={() => openExternal(MEMACT_SITE_URL)}
+              onClick={downloadExtensionPackage}
             >
-              Open memact.com
+              Download extension zip
+            </button>
+          ) : null}
+          {isSupportedDesktopBrowser && !extensionDetected ? (
+            <button
+              type="button"
+              className="dialog-secondary-button"
+              onClick={() => handleCopy('steps')}
+            >
+              {copiedState === 'steps' ? 'Steps copied' : 'Copy install steps'}
             </button>
           ) : null}
           <button type="button" className="dialog-primary-button" onClick={onClose}>
@@ -241,19 +366,58 @@ function BrowserSetupDialog({ browserInfo, mode, extensionDetected, extensionRea
           </div>
           <p className="browser-meta">{metaText}</p>
           <p className="browser-url">
-            {isPhoneMode || isDesktopFallback ? 'Local web memories stay on this device.' : MEMACT_SITE_URL}
+            {isSupportedDesktopBrowser ? extensionsUrl : 'Local web memories stay on this device.'}
           </p>
         </div>
-        {!isPhoneMode ? (
+        {isSupportedDesktopBrowser && !extensionDetected ? (
           <button
             type="button"
             className="dialog-primary-button"
-            onClick={() => openExternal(MEMACT_SITE_URL)}
+            onClick={downloadExtensionPackage}
           >
-            {needsDesktopSetup ? 'Open setup' : 'Open site'}
+            Download extension zip
           </button>
         ) : null}
       </div>
+
+      {isSupportedDesktopBrowser && !extensionDetected ? (
+        <div className="setup-guide">
+          <div className="refine-heading">MANUAL LOAD STEPS</div>
+          <div className="setup-step-list">
+            {setupSteps.map((step) => (
+              <div key={step} className="setup-step">
+                {step}
+              </div>
+            ))}
+          </div>
+
+          <div className="setup-code-grid">
+            <div className="setup-code-card">
+              <span className="answer-detail-label">Extensions page</span>
+              <span className="setup-code-value">{extensionsUrl}</span>
+            </div>
+            <div className="setup-code-card">
+              <span className="answer-detail-label">Download file</span>
+              <span className="setup-code-value">{packageFileLabel}</span>
+            </div>
+            <div className="setup-code-card">
+              <span className="answer-detail-label">Folder to select</span>
+              <span className="setup-code-value">{packageFolderLabel}</span>
+              <span className="setup-code-hint">{packageFolderHint}</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isDesktopFallback ? (
+        <div className="helper-card">
+          <span className="helper-title">LOCAL WEB MODE</span>
+          <p className="helper-text">
+            Memact can still run here, but automatic capture only starts after you load the
+            extension manually.
+          </p>
+        </div>
+      ) : null}
     </GlassDialog>
   )
 }
@@ -434,6 +598,9 @@ function MenuOrbButton({ label, text, onClick, buttonRef, hidden = false }) {
 }
 
 export default function Search({ extension }) {
+  const [experimentNoticeVisible, setExperimentNoticeVisible] = useState(
+    () => !getExperimentNoticeDismissed()
+  )
   const [bootComplete, setBootComplete] = useState(false)
   const [resultsMode, setResultsMode] = useState(false)
   const [selectedResult, setSelectedResult] = useState(null)
@@ -517,11 +684,7 @@ export default function Search({ extension }) {
   }
   const compactUi = Boolean(browserInfo.mobile || browserInfo.compactViewport)
   const isWebFallback = extension?.mode === 'web-fallback'
-  const setupLabel = browserInfo.mobile
-    ? 'Phone browser mode'
-    : extension?.requiresBridge
-      ? 'Desktop setup'
-      : 'Browser support'
+  const setupLabel = 'Install Browser Extension'
 
   const suggestionItems = search.suggestions
   const resultCount = search.results.length
@@ -716,6 +879,11 @@ export default function Search({ extension }) {
     }
   }
 
+  const handleDismissExperimentNotice = () => {
+    setExperimentNoticeVisible(false)
+    setExperimentNoticeDismissed(true)
+  }
+
   return (
     <>
       <main
@@ -724,6 +892,10 @@ export default function Search({ extension }) {
         } ${browserInfo.mobile ? 'is-mobile' : ''}`}
       >
         <div className="memact-root">
+          {experimentNoticeVisible ? (
+            <ExperimentalNotice onClose={handleDismissExperimentNotice} />
+          ) : null}
+
           <header className="top-bar">
             {resultsMode ? (
               <div className="results-header">

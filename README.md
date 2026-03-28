@@ -1,16 +1,16 @@
 # Memact
 
-Memact is a browser-first memory search app.
+Memact is the website and browser-memory app for Memact.
 
-It captures what you read in Chromium-based browsers, stores that memory locally in the extension, and lets you search it from the Memact web app.
+The website runs at `https://www.memact.com`. On desktop Chromium browsers, the optional Memact extension captures browser memories locally and makes them searchable from the site. On phone browsers, the website still works in local web mode.
 
 ## What It Does
 
-- Captures browser activity locally
-- Extracts page text, snippets, and keyphrases
-- Groups related activity into sessions
-- Ranks memories with semantic match, lexical match, and recency
-- Shows search results as cards with full extracted text on click
+- Hosts the Memact web interface
+- Searches local browser memories from the Memact site
+- Supports desktop extension capture with local storage only
+- Supports phone-browser local web mode
+- Uses capture intent and clutter audit modules to avoid low-value captures
 
 ## Privacy
 
@@ -21,9 +21,9 @@ It captures what you read in Chromium-based browsers, stores that memory locally
 
 ## Project Layout
 
-- `src/` - React web app
-- `extension/memact/` - Chromium extension
-- `public/` - static web assets
+- `src/` - React website app
+- `extension/memact/` - browser extension
+- `public/` - static website assets
 - `assets/` - fonts and shared visual assets
 - `memact_branding/` - brand logos and icons
 
@@ -42,7 +42,11 @@ npm run build
 
 ## Load The Extension
 
-1. Open `chrome://extensions` or `edge://extensions`
+Use the website menu item `Install Browser Extension` for the manual setup popup. It now shows the same steps inside Memact.
+
+Manual flow:
+
+1. Open `chrome://extensions`, `edge://extensions`, `brave://extensions`, `opera://extensions`, or `vivaldi://extensions`
 2. Turn on Developer mode
 3. Click `Load unpacked`
 4. Select `extension/memact`
@@ -59,10 +63,12 @@ The extension can connect to:
 - `http://0.0.0.0`
 - `https://www.memact.com`
 
-## Notes
+## Website Readiness
 
-- This repository now contains the browser app and browser extension only
-- The legacy desktop app files have been removed
+- Website metadata points to `https://www.memact.com`
+- The extension action opens `https://www.memact.com`
+- Old unused landing-page files have been removed from the repo
+- The repository now contains the website and extension code only
 
 ## License
 

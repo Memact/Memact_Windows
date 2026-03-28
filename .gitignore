@@ -10,3 +10,4 @@ node_modules/
 Thumbs.db
 *.db
 *.log
+.extension-package/

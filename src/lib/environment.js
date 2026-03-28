@@ -113,7 +113,7 @@ export function detectClientEnvironment() {
   const effectiveFamily = isBrave ? 'brave' : family
   const extensionCapable = !mobile && ['edge', 'chrome', 'opera', 'vivaldi', 'brave'].includes(effectiveFamily)
   const extensionRecommended = !mobile && effectiveFamily === 'edge'
-  const automaticCaptureSupported = extensionRecommended
+  const automaticCaptureSupported = extensionCapable
 
   return {
     family: effectiveFamily,
@@ -129,6 +129,6 @@ export function detectClientEnvironment() {
     extensionCapable,
     extensionRecommended,
     automaticCaptureSupported,
-    setupSupported: extensionRecommended,
+    setupSupported: extensionCapable,
   }
 }

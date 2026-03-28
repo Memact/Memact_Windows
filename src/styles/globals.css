@@ -123,6 +123,64 @@ button:disabled {
   align-items: center;
 }
 
+.experiment-banner {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 198, 118, 0.22);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 196, 104, 0.1),
+    rgba(255, 255, 255, 0.06)
+  );
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+.experiment-banner__copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.experiment-banner__eyebrow {
+  color: rgba(255, 226, 172, 0.9);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.experiment-banner__text {
+  margin: 0;
+  color: rgba(255, 245, 224, 0.94);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.experiment-banner__close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 222, 168, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 248, 236, 0.92);
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.experiment-banner__close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .home-menu-slot {
   width: 100%;
   display: flex;
@@ -1047,6 +1105,51 @@ button:disabled {
   gap: 10px;
 }
 
+.setup-guide {
+  display: grid;
+  gap: 10px;
+}
+
+.setup-step-list {
+  display: grid;
+  gap: 8px;
+}
+
+.setup-step,
+.setup-code-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.setup-code-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.setup-code-card {
+  display: grid;
+  gap: 8px;
+}
+
+.setup-code-value {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.setup-code-hint {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .memory-result-item {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1378,7 +1481,8 @@ button:disabled {
   }
 
   .answer-detail-grid,
-  .evidence-detail-grid {
+  .evidence-detail-grid,
+  .setup-code-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1420,6 +1524,16 @@ button:disabled {
   .browser-tile {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .experiment-banner {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .experiment-banner__text {
+    font-size: 13px;
+    line-height: 1.5;
   }
 }
 
