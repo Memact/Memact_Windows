@@ -79,6 +79,30 @@ export default function SearchBar({
     setSelectedIndex(-1)
   }
 
+  const maintainInputFocus = () => {
+    if (blurTimerRef.current) {
+      window.clearTimeout(blurTimerRef.current)
+      blurTimerRef.current = null
+    }
+    setFocused(true)
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    })
+  }
+
+  const makeSearchPassive = () => {
+    if (blurTimerRef.current) {
+      window.clearTimeout(blurTimerRef.current)
+      blurTimerRef.current = null
+    }
+    dockPointerDownRef.current = false
+    clearPreview()
+    setFocused(false)
+    window.requestAnimationFrame(() => {
+      inputRef.current?.blur()
+    })
+  }
+
   const selectSuggestion = (index) => {
     if (!visibleSuggestions.length) {
       return
@@ -92,20 +116,26 @@ export default function SearchBar({
     setSelectedIndex(bounded)
   }
 
-  const commitSuggestion = (suggestion) => {
+  const commitSuggestion = (suggestion, { keepFocused = true } = {}) => {
     if (!suggestion) {
       return
     }
     clearPreview()
     setTypedBeforeSelection(suggestion.completion)
     onChange?.(suggestion.completion)
+    if (keepFocused) {
+      maintainInputFocus()
+    }
   }
 
-  const submitSuggestion = (suggestion) => {
+  const submitSuggestion = (suggestion, { passiveAfterSubmit = false } = {}) => {
     if (!suggestion) {
       return
     }
-    commitSuggestion(suggestion)
+    commitSuggestion(suggestion, { keepFocused: !passiveAfterSubmit })
+    if (passiveAfterSubmit) {
+      makeSearchPassive()
+    }
     onSuggestionClick?.(suggestion.completion)
   }
 
@@ -139,10 +169,11 @@ export default function SearchBar({
         onSubmit={(event) => {
           event.preventDefault()
           if (selectedSuggestion) {
-            submitSuggestion(selectedSuggestion)
+            submitSuggestion(selectedSuggestion, { passiveAfterSubmit: true })
             return
           }
           onSubmit?.(value)
+          makeSearchPassive()
         }}
       >
         <input
@@ -214,7 +245,7 @@ export default function SearchBar({
 
             if (event.key === 'Enter' && selectedSuggestion) {
               event.preventDefault()
-              submitSuggestion(selectedSuggestion)
+              submitSuggestion(selectedSuggestion, { passiveAfterSubmit: true })
             }
           }}
           placeholder={placeholder}
@@ -274,14 +305,15 @@ export default function SearchBar({
                 }}
               >
                 {visibleSuggestions.map((suggestion, index) => (
-                  <button
+                <button
                     key={suggestion.id}
                     type="button"
                     className={`suggestion-card ${selectedIndex === index ? 'is-active' : ''}`}
+                    onPointerDown={(event) => event.preventDefault()}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => selectSuggestion(index)}
                     onMouseLeave={clearPreview}
-                    onClick={() => submitSuggestion(suggestion)}
+                    onClick={() => submitSuggestion(suggestion, { passiveAfterSubmit: true })}
                   >
                     <span className="suggestion-meta">{suggestion.category}</span>
                     <span className="suggestion-title">{suggestion.title}</span>

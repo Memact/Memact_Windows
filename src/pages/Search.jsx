@@ -96,8 +96,48 @@ async function copyTextValue(value) {
 }
 
 function GlassDialog({ title, subtitle, children, footer, onClose }) {
+  const panelRef = useRef(null)
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined
+    }
+
+    const { documentElement, body } = document
+    const previousActive = document.activeElement
+
+    documentElement.classList.add('has-dialog-open')
+    body.classList.add('has-dialog-open')
+
+    const focusTimer = window.requestAnimationFrame(() => {
+      panelRef.current?.scrollTo({ top: 0, behavior: 'auto' })
+      panelRef.current?.focus({ preventScroll: true })
+    })
+
+    return () => {
+      window.cancelAnimationFrame(focusTimer)
+      documentElement.classList.remove('has-dialog-open')
+      body.classList.remove('has-dialog-open')
+
+      if (previousActive && typeof previousActive.focus === 'function') {
+        window.requestAnimationFrame(() => {
+          previousActive.focus({ preventScroll: true })
+        })
+      }
+    }
+  }, [])
+
   return (
-    <div className="dialog-overlay" role="presentation" onMouseDown={onClose}>
+    <div
+      className="dialog-overlay"
+      role="presentation"
+      onMouseDown={onClose}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          onClose?.()
+        }
+      }}
+    >
       <div
         className="dialog-shell"
         role="dialog"
@@ -105,7 +145,7 @@ function GlassDialog({ title, subtitle, children, footer, onClose }) {
         aria-label={title}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="dialog-panel">
+        <div ref={panelRef} className="dialog-panel" tabIndex={-1}>
           <div className="dialog-copy">
             <h2 className="dialog-title">{title}</h2>
             {subtitle ? <p className="dialog-body">{subtitle}</p> : null}
@@ -1026,7 +1066,10 @@ export default function Search({ extension }) {
             ) : null}
           </section>
 
-          <footer className={`status-text ${dockVisible ? 'is-hidden' : ''}`}>{statusText}</footer>
+          <footer className={`status-text ${dockVisible ? 'is-hidden' : ''}`}>
+            <span>{statusText}</span>
+            <span className="status-text__version">MVP v1.0</span>
+          </footer>
 
           <div className={`loading-bar ${showLoadingBar ? 'is-visible' : ''}`}>
             <div className="loading-bar__chunk" />

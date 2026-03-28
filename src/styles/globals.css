@@ -52,6 +52,12 @@ body,
   min-height: 100%;
 }
 
+html.has-dialog-open,
+body.has-dialog-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
@@ -853,12 +859,28 @@ button:disabled {
   word-break: break-word;
   max-height: 48vh;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .status-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
   text-align: center;
   color: rgba(255, 255, 255, 0.68);
   font-size: 14px;
+}
+
+.status-text__version {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
 }
 
 .status-text.is-hidden {
@@ -937,16 +959,20 @@ button:disabled {
   justify-items: center;
   align-items: start;
   padding: 20px;
-  overflow: auto;
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .dialog-shell {
   width: min(680px, 100%);
   max-height: calc(100vh - 40px);
   margin: auto 0;
+  display: flex;
+  min-height: 0;
 }
 
 .dialog-panel {
+  width: 100%;
   padding: 20px;
   border-radius: 24px;
   border: 1px solid var(--border);
@@ -958,6 +984,10 @@ button:disabled {
   -webkit-backdrop-filter: blur(24px);
   max-height: calc(100vh - 40px);
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  outline: none;
 }
 
 .dialog-copy {
@@ -1539,6 +1569,11 @@ button:disabled {
 
   .status-text {
     font-size: 13px;
+    gap: 8px;
+  }
+
+  .status-text__version {
+    font-size: 10px;
   }
 
   .browser-tile {
