@@ -15,6 +15,10 @@
 }
 
 :root {
+  --safe-top: env(safe-area-inset-top);
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
   --bg: #00011b;
   --surface: rgba(255, 255, 255, 0.08);
   --surface-deep: rgba(8, 10, 34, 0.98);
@@ -50,10 +54,12 @@ body,
 
 body {
   margin: 0;
+  min-height: 100dvh;
   font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   color: var(--text);
   background: var(--bg);
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 button,
@@ -71,6 +77,7 @@ button {
   border: none;
   background: transparent;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 a {
@@ -83,14 +90,22 @@ button:disabled {
 }
 
 .memact-page {
+  min-height: 100dvh;
   height: 100vh;
+  height: 100dvh;
   background: var(--bg);
   overflow: hidden;
 }
 
 .memact-root {
+  min-height: 100dvh;
   height: 100vh;
-  padding: 30px 40px;
+  height: 100dvh;
+  padding:
+    calc(30px + var(--safe-top))
+    calc(40px + var(--safe-right))
+    calc(30px + var(--safe-bottom))
+    calc(40px + var(--safe-left));
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1057,8 +1072,11 @@ button:disabled {
 
 .history-scroll,
 .suggestion-list,
-.evidence-scroll {
+.evidence-scroll,
+.dialog-panel,
+.memory-detail-text {
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .history-scroll {
@@ -1071,6 +1089,48 @@ button:disabled {
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   touch-action: pan-y;
+}
+
+.memact-page.is-compact .results-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'left right'
+    'center center';
+  gap: 12px;
+  align-items: start;
+}
+
+.memact-page.is-compact .results-header__left {
+  grid-area: left;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.memact-page.is-compact .results-header__center {
+  grid-area: center;
+  justify-content: stretch;
+}
+
+.memact-page.is-compact .results-header__right {
+  grid-area: right;
+  justify-content: flex-end;
+}
+
+.memact-page.is-compact .results-divider-host {
+  display: none;
+}
+
+.memact-page.is-compact .center-stage,
+.memact-page.is-compact .home-hero,
+.memact-page.is-compact .search-cluster,
+.memact-page.is-compact .results-panel {
+  width: 100%;
+  max-width: none;
+}
+
+.memact-page.is-compact .results-panel {
+  max-height: calc(100dvh - 204px - var(--safe-top) - var(--safe-bottom));
 }
 
 .history-row {
@@ -1148,7 +1208,11 @@ button:disabled {
 
 @media (max-width: 980px) {
   .memact-root {
-    padding: 18px;
+    padding:
+      calc(18px + var(--safe-top))
+      calc(18px + var(--safe-right))
+      calc(18px + var(--safe-bottom))
+      calc(18px + var(--safe-left));
   }
 
   .memact-page.is-home .center-stage {
@@ -1179,8 +1243,17 @@ button:disabled {
 }
 
 @media (max-width: 720px) {
+  body {
+    overflow: auto;
+  }
+
   .memact-root {
-    padding: 12px;
+    gap: 12px;
+    padding:
+      calc(12px + var(--safe-top))
+      calc(12px + var(--safe-right))
+      calc(12px + var(--safe-bottom))
+      calc(12px + var(--safe-left));
   }
 
   .memact-page.is-home .center-stage {
@@ -1208,23 +1281,140 @@ button:disabled {
   }
 
   .search-shell {
-    min-height: 56px;
-    padding: 10px 16px 10px 18px;
+    min-height: 58px;
+    padding: 10px 14px 10px 16px;
+    border-radius: 22px;
   }
 
   .search-input {
-    font-size: 20px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .suggestion-dock {
+    padding: 8px 8px 10px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    max-height: min(48dvh, 420px);
+  }
+
+  .time-chip-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .time-chip-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .time-filter-chip {
+    white-space: nowrap;
+  }
+
+  .suggestion-card {
+    padding: 14px;
+  }
+
+  .suggestion-title {
+    font-size: 15px;
+  }
+
+  .suggestion-subtitle {
+    font-size: 11px;
   }
 
   .answer-card,
   .results-panel,
   .evidence-card,
   .dialog-panel {
-    padding: 18px;
+    padding: 16px;
   }
 
   .results-panel {
-    max-height: calc(100vh - 210px);
+    border-radius: 22px;
+    max-height: calc(100dvh - 204px - var(--safe-top) - var(--safe-bottom));
+  }
+
+  .results-panel__title {
+    font-size: clamp(22px, 7vw, 28px);
+  }
+
+  .results-panel__subtitle {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .evidence-card {
+    border-radius: 16px;
+  }
+
+  .evidence-title {
+    font-size: 20px;
+  }
+
+  .evidence-summary {
+    font-size: 15px;
+  }
+
+  .evidence-footer,
+  .dialog-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .evidence-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .evidence-link-button,
+  .evidence-detail-button,
+  .dialog-primary-button,
+  .dialog-secondary-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .answer-detail-grid,
+  .evidence-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-surface {
+    left: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+    bottom: calc(12px + var(--safe-bottom));
+    width: auto;
+    border-radius: 18px;
+  }
+
+  .dialog-overlay {
+    padding:
+      calc(12px + var(--safe-top))
+      calc(12px + var(--safe-right))
+      calc(12px + var(--safe-bottom))
+      calc(12px + var(--safe-left));
+  }
+
+  .dialog-shell,
+  .dialog-panel {
+    width: 100%;
+    max-height: calc(100dvh - 24px - var(--safe-top) - var(--safe-bottom));
+  }
+
+  .dialog-panel {
+    border-radius: 20px;
+  }
+
+  .memory-detail-text {
+    max-height: 30dvh;
+  }
+
+  .status-text {
+    font-size: 13px;
   }
 
   .browser-tile {

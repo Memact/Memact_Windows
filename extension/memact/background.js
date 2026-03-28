@@ -14,6 +14,8 @@ import {
   shouldSkipCaptureProfile,
 } from "./context-pipeline.js";
 import { classifyLocalPage } from "./page-intelligence.js";
+import { inferCaptureIntent } from "./capture-intent.js";
+import { auditCapturedContent } from "./clutter-audit.js";
 import { extractKeyphrases } from "./keywords.js";
 import { answerLocalQuery } from "./query-engine.js";
 
@@ -72,6 +74,13 @@ function normalizeText(value, maxLen) {
     .trim();
   if (!text) return "";
   return maxLen && text.length > maxLen ? `${text.slice(0, maxLen - 3)}...` : text;
+}
+
+function toTitleCase(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function normalizeRichText(value, maxLen) {
@@ -142,10 +151,53 @@ function buildSearchableText(tabData, contextProfile = null) {
       ? contextProfile.factItems.map((item) => `${item.label} ${item.value}`).join(" ")
       : "",
     contextProfile?.structuredSummary || "",
-    contextProfile?.contextText || ""
+    contextProfile?.contextText || "",
+    contextProfile?.captureIntent?.pagePurpose || "",
+    Array.isArray(contextProfile?.captureIntent?.targetRegions)
+      ? contextProfile.captureIntent.targetRegions.join(" ")
+      : "",
+    contextProfile?.clutterAudit?.summary || ""
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function chooseStoredCaptureContent(active, initialProfile, captureIntent, clutterAudit) {
+  const summarySnippet = normalizeText(
+    initialProfile.structuredSummary || initialProfile.displayExcerpt || active.snippet,
+    SNIPPET_MAX_LEN
+  );
+  const structuredFullText = normalizeRichText(
+    initialProfile.displayFullText || initialProfile.displayExcerpt || summarySnippet,
+    FULL_TEXT_MAX_LEN
+  );
+  const readableFullText = normalizeRichText(
+    initialProfile.fullText || active.fullText || structuredFullText,
+    FULL_TEXT_MAX_LEN
+  );
+
+  if (!captureIntent.shouldCapture || clutterAudit.shouldSkip) {
+    return { snippet: "", fullText: "" };
+  }
+
+  if (captureIntent.shouldKeepMetadataOnly) {
+    return {
+      snippet: summarySnippet,
+      fullText: "",
+    };
+  }
+
+  if (captureIntent.shouldPreferStructured || clutterAudit.shouldPreferStructured) {
+    return {
+      snippet: summarySnippet,
+      fullText: structuredFullText,
+    };
+  }
+
+  return {
+    snippet: normalizeText(active.snippet || summarySnippet, SNIPPET_MAX_LEN) || summarySnippet,
+    fullText: readableFullText,
+  };
 }
 
 function mergeUniqueStrings(values, limit = 24) {
@@ -608,13 +660,13 @@ async function captureActiveTabContext(tab) {
 
 async function processAndStore(tabData) {
   const active = tabData.activeContext || {};
-  const fullText = active.fullText || "";
-  const snippet = active.snippet || "";
+  const initialFullText = active.fullText || "";
+  const initialSnippet = active.snippet || "";
   const pageTitle = active.pageTitle || tabData.activeTab?.title || "";
   if (shouldIgnoreCapturedPage(tabData.activeTab?.url || "", pageTitle)) {
     return null;
   }
-  const baseKeyphrases = extractKeyphrases(fullText || snippet);
+  const baseKeyphrases = extractKeyphrases(initialFullText || initialSnippet);
   const initialProfile = extractContextProfile({
     url: tabData.activeTab?.url || "",
     application: tabData.browser,
@@ -622,32 +674,67 @@ async function processAndStore(tabData) {
     description: active.description,
     h1: active.h1,
     selection: active.selection,
-    snippet,
-    fullText,
+    snippet: initialSnippet,
+    fullText: initialFullText,
     keyphrases: baseKeyphrases,
   });
+  const captureIntent = inferCaptureIntent(initialProfile);
+  const initialClutterAudit = auditCapturedContent(initialProfile, captureIntent);
+  if (!captureIntent.shouldCapture || initialClutterAudit.shouldSkip) {
+    return null;
+  }
+  const storedContent = chooseStoredCaptureContent(
+    active,
+    initialProfile,
+    captureIntent,
+    initialClutterAudit
+  );
   const keyphrases = mergeUniqueStrings([
-    ...baseKeyphrases,
+    ...extractKeyphrases(storedContent.fullText || storedContent.snippet),
     initialProfile.subject,
     ...(initialProfile.entities || []),
     ...(initialProfile.topics || []),
   ]);
-  const contextProfile = extractContextProfile({
+  let contextProfile = extractContextProfile({
     url: tabData.activeTab?.url || "",
     application: tabData.browser,
     pageTitle,
     description: active.description,
     h1: active.h1,
     selection: active.selection,
-    snippet,
-    fullText,
+    snippet: storedContent.snippet,
+    fullText: storedContent.fullText,
     keyphrases,
     contextProfile: initialProfile,
   });
+  let clutterAudit = auditCapturedContent(contextProfile, captureIntent);
+  if (clutterAudit.shouldPreferStructured && contextProfile.displayFullText) {
+    contextProfile = extractContextProfile({
+      url: tabData.activeTab?.url || "",
+      application: tabData.browser,
+      pageTitle,
+      description: active.description,
+      h1: active.h1,
+      selection: active.selection,
+      snippet: normalizeText(
+        contextProfile.structuredSummary || contextProfile.displayExcerpt || storedContent.snippet,
+        SNIPPET_MAX_LEN
+      ),
+      fullText: normalizeRichText(contextProfile.displayFullText, FULL_TEXT_MAX_LEN),
+      keyphrases,
+      contextProfile: {
+        ...initialProfile,
+        captureIntent,
+      },
+    });
+    clutterAudit = auditCapturedContent(contextProfile, captureIntent);
+  }
   const localJudge = await classifyLocalPage(contextProfile, {
     embedText,
     cosineSimilarity,
   });
+  contextProfile.captureIntent = captureIntent;
+  contextProfile.clutterAudit = clutterAudit;
   contextProfile.localJudge = localJudge;
   if (shouldSkipCaptureProfile(contextProfile)) {
     return null;
@@ -672,7 +759,10 @@ async function processAndStore(tabData) {
     factItems: contextProfile.factItems,
     structuredSummary: contextProfile.structuredSummary,
     displayExcerpt: contextProfile.displayExcerpt,
+    displayFullText: contextProfile.displayFullText,
     contextText: contextProfile.contextText,
+    captureIntent: contextProfile.captureIntent,
+    clutterAudit: contextProfile.clutterAudit,
     localJudge: contextProfile.localJudge,
   };
 
@@ -686,8 +776,8 @@ async function processAndStore(tabData) {
       : active.scrollingActive
         ? "scroll"
         : "navigate",
-    content_text: snippet,
-    full_text: fullText,
+    content_text: storedContent.snippet,
+    full_text: contextProfile.fullText || storedContent.fullText,
     keyphrases_json: JSON.stringify(keyphrases),
     searchable_text: searchableText,
     embedding_json: JSON.stringify(embedding),
@@ -874,96 +964,190 @@ function buildSuggestionSubtitle(event) {
   return [app, domain, when].filter(Boolean).join("  |  ");
 }
 
-function createQuerySuggestion(event, completion, category) {
-  const text = normalizeText(completion, 180);
+function monthKeyFromDate(value) {
+  const date = new Date(value || 0);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  return `${date.getFullYear()}-${month}`;
+}
+
+function formatMonthLabel(monthKey) {
+  const match = String(monthKey || "").match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return "";
+  }
+  const [, year, month] = match;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(Number(year), Number(month) - 1, 1));
+}
+
+function readFactValue(profile, label) {
+  return normalizeText(
+    (profile.factItems || []).find((item) => normalizeText(item.label).toLowerCase() === label)?.value
+  );
+}
+
+function candidateMatchesQuery(text, query) {
+  const normalizedQuery = normalizeText(query, 240).toLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+  const haystack = normalizeText(text, 240).toLowerCase();
+  const tokens = normalizedQuery.split(/\s+/).filter((token) => token.length >= 2);
+  return tokens.every((token) => haystack.includes(token));
+}
+
+function buildAggregateSubtitle(candidate) {
+  const parts = [
+    `${candidate.count} captures`,
+    candidate.subtitle || "",
+    candidate.latestAt ? suggestionTimeLabel(candidate.latestAt) : "",
+  ].filter(Boolean);
+  return parts.join("  |  ");
+}
+
+function createAggregateSuggestion(candidate) {
+  const text = normalizeText(candidate.completion, 180);
   if (!text) {
     return null;
   }
 
   return {
-    id: `${event.id || "event"}-${category}-${text.toLowerCase()}`,
-    category,
+    id: candidate.id,
+    category: candidate.category,
     title: text,
-    subtitle: buildSuggestionSubtitle(event),
-    completion: text
+    subtitle: buildAggregateSubtitle(candidate),
+    completion: text,
   };
 }
 
+function addSuggestionCandidate(map, key, category, completion, subtitle, occurredAt) {
+  const normalizedCompletion = normalizeText(completion, 180);
+  if (!normalizedCompletion) {
+    return;
+  }
+
+  const existing = map.get(key);
+  if (!existing) {
+    map.set(key, {
+      id: key,
+      category,
+      completion: normalizedCompletion,
+      subtitle: normalizeText(subtitle, 80),
+      latestAt: occurredAt,
+      count: 1,
+    });
+    return;
+  }
+
+  existing.count += 1;
+  if (!existing.latestAt || new Date(occurredAt || 0) > new Date(existing.latestAt || 0)) {
+    existing.latestAt = occurredAt;
+    existing.subtitle = normalizeText(subtitle, 80) || existing.subtitle;
+  }
+}
+
 async function handleSuggestions(query, timeFilter, limit = 6) {
-  const normalizedQuery = normalizeText(query, 240).toLowerCase();
-  const recentEvents = await getRecentEvents(320);
+  const recentEvents = await getRecentEvents(400);
   const filteredEvents = recentEvents.filter(
     (event) =>
       matchesTimeFilter(event, timeFilter) &&
       !shouldIgnoreCapturedPage(event.url, event.window_title)
   );
-  const suggestions = [];
-  const seen = new Set();
-
-  const pushSuggestion = (event, completion, category) => {
-    const suggestion = createQuerySuggestion(event, completion, category);
-    if (!suggestion) {
-      return;
-    }
-
-    const key = suggestion.completion.toLowerCase();
-    if (seen.has(key)) {
-      return;
-    }
-
-    seen.add(key);
-    suggestions.push(suggestion);
-  };
+  const candidates = new Map();
 
   for (const event of filteredEvents) {
-    if (suggestions.length >= limit) {
-      break;
-    }
-
     const profile = parseContextProfile(event);
-    const title = normalizeText(profile.title || event.window_title, 96);
-    const app = normalizeText(event.application, 40);
-    const domain = profile.domain || hostnameFromUrl(event.url);
-    const keyphrases = mergeUniqueStrings(
-      [...(profile.keyphrases || []), ...(profile.entities || []), ...(profile.topics || [])],
-      4
-    );
-    const haystack = [
-      title,
-      event.url,
-      event.searchable_text,
-      keyphrases.join(" "),
-      domain,
-      app,
-      profile.subject || "",
-      profile.structuredSummary || "",
-      profile.contextText || "",
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    if (normalizedQuery) {
-      const tokens = normalizedQuery.split(/\s+/).filter((token) => token.length >= 2);
-      const tokenHit = tokens.some((token) => haystack.includes(token));
-      if (!tokenHit) {
-        continue;
-      }
+    if (shouldSkipCaptureProfile(profile)) {
+      continue;
+    }
+    if (profile.clutterAudit?.clutterScore >= 0.82) {
+      continue;
     }
 
-    const queryFrames = buildSuggestionQueries(profile, { limit: 6 });
-    for (const suggestion of queryFrames) {
-      pushSuggestion(
-        event,
-        suggestion.query,
-        normalizedQuery ? "Matching memory" : suggestion.category || "Recent activity"
+    const domain = normalizeText(profile.domain || hostnameFromUrl(event.url), 64).toLowerCase();
+    const app = normalizeText(event.application, 40);
+    const subject = normalizeText(profile.subject, 96);
+    const searchQuery = readFactValue(profile, "query");
+    const monthKey = monthKeyFromDate(event.occurred_at);
+    const monthLabel = formatMonthLabel(monthKey);
+
+    if (domain) {
+      addSuggestionCandidate(
+        candidates,
+        `site:${domain}`,
+        "Recent site",
+        `Show activity from ${domain}`,
+        domain,
+        event.occurred_at
       );
-      if (suggestions.length >= limit) {
-        break;
-      }
+    }
+
+    if (app) {
+      addSuggestionCandidate(
+        candidates,
+        `app:${app.toLowerCase()}`,
+        "Recent app",
+        `What was I doing in ${toTitleCase(app)}?`,
+        toTitleCase(app),
+        event.occurred_at
+      );
+    }
+
+    if (searchQuery) {
+      addSuggestionCandidate(
+        candidates,
+        `search:${searchQuery.toLowerCase()}`,
+        "Recent search",
+        `Show searches for "${searchQuery}"`,
+        domain || "Search history",
+        event.occurred_at
+      );
+    } else if (
+      subject &&
+      profile.pageType !== "search" &&
+      profile.pageType !== "web" &&
+      subject.toLowerCase() !== domain &&
+      profile.captureIntent?.captureMode !== "metadata" &&
+      profile.clutterAudit?.organizationScore >= 0.34
+    ) {
+      addSuggestionCandidate(
+        candidates,
+        `topic:${subject.toLowerCase()}`,
+        "Recent topic",
+        `What did I read about "${subject}"?`,
+        profile.pageTypeLabel || domain,
+        event.occurred_at
+      );
+    }
+
+    if (monthLabel) {
+      addSuggestionCandidate(
+        candidates,
+        `month:${monthKey}`,
+        "Recent month",
+        `Show memories from ${monthLabel}`,
+        monthLabel,
+        event.occurred_at
+      );
     }
   }
 
-  return suggestions.slice(0, limit);
+  return [...candidates.values()]
+    .filter((candidate) => candidateMatchesQuery(candidate.completion, query))
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+      return new Date(right.latestAt || 0) - new Date(left.latestAt || 0);
+    })
+    .slice(0, limit)
+    .map(createAggregateSuggestion)
+    .filter(Boolean);
 }
 
 async function handleSearch(query, limit = 20) {

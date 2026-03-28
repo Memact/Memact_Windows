@@ -219,7 +219,11 @@ export default function SearchBar({
           }}
           placeholder={placeholder}
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
           spellCheck={false}
+          inputMode="search"
+          enterKeyHint="search"
           aria-label="Search"
         />
 

@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { detectClientEnvironment } from '../lib/environment'
+import {
+  clearWebMemories,
+  initializeWebMemoryStore,
+  webMemorySearch,
+  webMemoryStats,
+  webMemoryStatus,
+  webMemorySuggestions,
+} from '../lib/webMemoryStore'
 
 function supportsWindowMessaging() {
   return typeof window !== 'undefined' && typeof window.postMessage === 'function'
@@ -20,9 +29,23 @@ function isResponseType(type) {
 }
 
 export function useExtension() {
-  const [ready, setReady] = useState(false)
-  const [detected, setDetected] = useState(false)
+  const environment = useMemo(() => detectClientEnvironment(), [])
+  const supportsBridge = environment.extensionCapable
+  const useWebFallback = environment.mobile || !supportsBridge
+  const [ready, setReady] = useState(useWebFallback)
+  const [detected, setDetected] = useState(useWebFallback)
+  const [bridgeDetected, setBridgeDetected] = useState(false)
+  const [webMemoryCount, setWebMemoryCount] = useState(0)
   const pending = useRef(new Map())
+
+  useEffect(() => {
+    const init = initializeWebMemoryStore(environment)
+    setWebMemoryCount(Number(init.memoryCount || 0))
+    if (useWebFallback) {
+      setReady(true)
+      setDetected(true)
+    }
+  }, [environment, useWebFallback])
 
   const sendToExtension = useCallback((type, payload = {}, timeoutMs = 5000) => {
     if (!supportsWindowMessaging()) {
@@ -69,12 +92,13 @@ export function useExtension() {
   }, [sendToExtension])
 
   useEffect(() => {
-    if (!supportsWindowMessaging()) {
+    if (!supportsWindowMessaging() || !supportsBridge) {
       return undefined
     }
 
     if (document?.documentElement?.dataset?.memactBridge === 'ready') {
       setDetected(true)
+      setBridgeDetected(true)
     }
 
     const onMessage = (event) => {
@@ -85,6 +109,7 @@ export function useExtension() {
       const data = event.data || {}
       if (data.type === 'MEMACT_EXTENSION_READY') {
         setDetected(true)
+        setBridgeDetected(true)
         return
       }
 
@@ -93,6 +118,7 @@ export function useExtension() {
       }
 
       setDetected(true)
+      setBridgeDetected(true)
 
       const resolver = pending.current.get(data.requestId)
       if (!resolver) {
@@ -108,6 +134,7 @@ export function useExtension() {
 
       if (data.type === 'MEMACT_STATUS_RESULT' && data.status) {
         setDetected(true)
+        setBridgeDetected(true)
         setReady(Boolean(data.status.ready))
       }
 
@@ -142,32 +169,59 @@ export function useExtension() {
       cancelled = true
       window.removeEventListener('message', onMessage)
     }
-  }, [sendWithRetry])
+  }, [sendWithRetry, supportsBridge])
 
   const search = useCallback((query, limit = 20) => {
+    if (useWebFallback && !bridgeDetected) {
+      return Promise.resolve(webMemorySearch(query, limit, environment))
+    }
     return sendToExtension('MEMACT_SEARCH', { query, limit })
-  }, [sendToExtension])
+  }, [bridgeDetected, environment, sendToExtension, useWebFallback])
 
   const getSuggestions = useCallback((query = '', timeFilter = null, limit = 6) => {
+    if (useWebFallback && !bridgeDetected) {
+      return Promise.resolve(webMemorySuggestions(query, timeFilter, limit))
+    }
     return sendToExtension('MEMACT_SUGGESTIONS', { query, timeFilter, limit })
-  }, [sendToExtension])
+  }, [bridgeDetected, sendToExtension, useWebFallback])
 
   const getStatus = useCallback(() => {
+    if (useWebFallback && !bridgeDetected) {
+      return Promise.resolve(webMemoryStatus(environment))
+    }
     return sendToExtension('MEMACT_STATUS', {})
-  }, [sendToExtension])
+  }, [bridgeDetected, environment, sendToExtension, useWebFallback])
 
   const getStats = useCallback(() => {
+    if (useWebFallback && !bridgeDetected) {
+      return Promise.resolve(webMemoryStats())
+    }
     return sendToExtension('MEMACT_STATS', {})
-  }, [sendToExtension])
+  }, [bridgeDetected, sendToExtension, useWebFallback])
 
   const clearAllData = useCallback(() => {
+    if (useWebFallback && !bridgeDetected) {
+      const response = clearWebMemories()
+      if (response?.ok) {
+        setWebMemoryCount(0)
+      }
+      return Promise.resolve(response)
+    }
     return sendToExtension('MEMACT_CLEAR_ALL_DATA', {})
-  }, [sendToExtension])
+  }, [bridgeDetected, sendToExtension, useWebFallback])
+
+  const mode = bridgeDetected ? 'extension' : useWebFallback ? 'web-fallback' : 'bridge-required'
+  const requiresBridge = mode === 'bridge-required'
 
   return useMemo(
     () => ({
       ready,
       detected,
+      bridgeDetected,
+      mode,
+      requiresBridge,
+      environment,
+      webMemoryCount,
       search,
       getSuggestions,
       getStatus,
@@ -175,6 +229,20 @@ export function useExtension() {
       clearAllData,
       sendToExtension,
     }),
-    [clearAllData, detected, getStatus, getStats, getSuggestions, ready, search, sendToExtension]
+    [
+      bridgeDetected,
+      clearAllData,
+      detected,
+      environment,
+      getStatus,
+      getStats,
+      getSuggestions,
+      mode,
+      ready,
+      requiresBridge,
+      search,
+      sendToExtension,
+      webMemoryCount,
+    ]
   )
 }

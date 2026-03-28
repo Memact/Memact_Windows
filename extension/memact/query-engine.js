@@ -323,6 +323,8 @@ function normalizeEvent(rawEvent) {
     context_topics: contextProfile.topics || [],
     context_text: contextProfile.contextText || "",
     context_profile: contextProfile,
+    capture_intent: contextProfile.captureIntent || null,
+    clutter_audit: contextProfile.clutterAudit || null,
     local_judge: contextProfile.localJudge || null,
     canonicalFingerprint: [
       canonicalUrl(rawEvent.url || ""),
@@ -909,6 +911,106 @@ function buildSessionGraph(sessions, cosineSimilarity) {
   return byId;
 }
 
+const MONTH_LOOKUP = new Map([
+  ["january", "01"],
+  ["jan", "01"],
+  ["february", "02"],
+  ["feb", "02"],
+  ["march", "03"],
+  ["mar", "03"],
+  ["april", "04"],
+  ["apr", "04"],
+  ["may", "05"],
+  ["june", "06"],
+  ["jun", "06"],
+  ["july", "07"],
+  ["jul", "07"],
+  ["august", "08"],
+  ["aug", "08"],
+  ["september", "09"],
+  ["sep", "09"],
+  ["sept", "09"],
+  ["october", "10"],
+  ["oct", "10"],
+  ["november", "11"],
+  ["nov", "11"],
+  ["december", "12"],
+  ["dec", "12"],
+]);
+
+function normalizeComparable(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function exactIncludes(haystack, needle) {
+  const left = normalizeComparable(haystack);
+  const right = normalizeComparable(needle);
+  return Boolean(left && right && left.includes(right));
+}
+
+function eventMonthKey(event) {
+  if (!event?.timestamp) {
+    return "";
+  }
+  const date = new Date(event.timestamp);
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  return `${date.getFullYear()}-${month}`;
+}
+
+function formatMonthKey(monthKey) {
+  const match = String(monthKey || "").match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return monthKey || "";
+  }
+  const [, year, month] = match;
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function extractMonthKey(text) {
+  const normalized = normalizeText(text).toLowerCase();
+  const direct = normalized.match(/\b(20\d{2})[-/](0[1-9]|1[0-2])\b/);
+  if (direct) {
+    return `${direct[1]}-${direct[2]}`;
+  }
+
+  const named = normalized.match(
+    /\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\s+(20\d{2})\b/
+  );
+  if (!named) {
+    return "";
+  }
+
+  const month = MONTH_LOOKUP.get(named[1]);
+  return month ? `${named[2]}-${month}` : "";
+}
+
+function eventSearchQuery(event) {
+  if (!event) {
+    return "";
+  }
+  const queryFact = (event.fact_items || []).find(
+    (item) => normalizeComparable(item.label) === "query"
+  )?.value;
+  return normalizeText(queryFact || (event.page_type === "search" ? event.context_subject : ""));
+}
+
+function eventSubjectHaystack(event) {
+  return [
+    event.title,
+    event.context_subject,
+    ...(event.context_entities || []),
+    ...(event.context_topics || []),
+    ...(event.keyphrases || []),
+    ...(event.fact_items || []).map((item) => item.value),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function detectOperator(query) {
   const text = normalizeText(query).replace(/[?]+$/, "");
   const patterns = [
@@ -917,6 +1019,9 @@ function detectOperator(query) {
     { name: "connected", regex: /^(?:show everything connected to|show everything related to)\s+(.+)$/i },
     { name: "domain", regex: /^(?:show activity from|what was i reading on)\s+(.+)$/i },
     { name: "app", regex: /^(?:what was i doing in|what was i working in)\s+(.+)$/i },
+    { name: "search_query", regex: /^(?:show searches for|find searches for|where did i search for)\s+(.+)$/i },
+    { name: "topic", regex: /^(?:what did i read about|show pages about|find pages about)\s+(.+)$/i },
+    { name: "seen", regex: /^(?:where did i see|find)\s+(.+)$/i },
   ];
   for (const pattern of patterns) {
     const match = text.match(pattern.regex);
@@ -927,7 +1032,95 @@ function detectOperator(query) {
       };
     }
   }
+  const monthKey = extractMonthKey(text);
+  if (monthKey) {
+    return {
+      name: "month",
+      anchor: monthKey,
+      label: formatMonthKey(monthKey),
+    };
+  }
   return { name: "match", anchor: text };
+}
+
+function exactScoreForOperator(event, operator) {
+  let score = 0.4;
+  if (event.timestamp) {
+    const recencyDays = (Date.now() - event.timestamp) / (1000 * 60 * 60 * 24);
+    score += Math.exp((-Math.log(2) * recencyDays) / 5) * 0.2;
+  }
+
+  if (operator.name === "domain") {
+    if (exactIncludes(event.domain, operator.anchor)) score += 0.45;
+    if (exactIncludes(event.url, operator.anchor)) score += 0.2;
+    return score;
+  }
+
+  if (operator.name === "app") {
+    if (exactIncludes(event.application, operator.anchor)) score += 0.45;
+    return score;
+  }
+
+  if (operator.name === "month") {
+    if (eventMonthKey(event) === operator.anchor) score += 0.5;
+    return score;
+  }
+
+  if (operator.name === "search_query") {
+    if (event.page_type === "search") score += 0.2;
+    if (exactIncludes(eventSearchQuery(event), operator.anchor)) score += 0.45;
+    if (exactIncludes(event.title, operator.anchor)) score += 0.12;
+    return score;
+  }
+
+  const haystack = eventSubjectHaystack(event);
+  if (exactIncludes(event.context_subject, operator.anchor)) score += 0.45;
+  if (exactIncludes(event.title, operator.anchor)) score += 0.3;
+  if (exactIncludes(haystack, operator.anchor)) score += 0.18;
+  return score;
+}
+
+function exactRetrieve(operator, events) {
+  const matches = events.filter((event) => {
+    switch (operator.name) {
+      case "domain":
+        return (
+          exactIncludes(event.domain, operator.anchor) ||
+          exactIncludes(event.url, operator.anchor)
+        );
+      case "app":
+        return exactIncludes(event.application, operator.anchor);
+      case "month":
+        return eventMonthKey(event) === operator.anchor;
+      case "search_query":
+        return (
+          event.page_type === "search" &&
+          (exactIncludes(eventSearchQuery(event), operator.anchor) ||
+            exactIncludes(event.title, operator.anchor))
+        );
+      case "topic":
+      case "seen":
+      case "match":
+        return (
+          exactIncludes(event.context_subject, operator.anchor) ||
+          exactIncludes(event.title, operator.anchor) ||
+          exactIncludes(eventSubjectHaystack(event), operator.anchor)
+        );
+      default:
+        return false;
+    }
+  });
+
+  return matches
+    .map((event) => {
+      const score = exactScoreForOperator(event, operator);
+      return {
+        ...event,
+        exact_score: score,
+        score,
+      };
+    })
+    .sort((left, right) => right.score - left.score || right.timestamp - left.timestamp);
 }
 
 async function rankEvents(text, events, embedText, cosineSimilarity, options = {}) {
@@ -1098,6 +1291,24 @@ async function rerankWithLocalJudge(events, embedText, cosineSimilarity, limit =
         adjustment = 0.05;
       }
 
+      if (event.capture_intent?.captureMode === "metadata") {
+        adjustment -= 0.14;
+      } else if (event.capture_intent?.captureMode === "structured") {
+        adjustment += 0.02;
+      } else if (event.capture_intent?.captureMode === "full") {
+        adjustment += 0.04;
+      }
+
+      const clutterScore = Number(event.clutter_audit?.clutterScore || 0);
+      const organizationScore = Number(event.clutter_audit?.organizationScore || 0);
+      if (clutterScore >= 0.78) {
+        adjustment -= 0.28;
+      } else if (clutterScore >= 0.58) {
+        adjustment -= 0.14;
+      } else if (organizationScore >= 0.72) {
+        adjustment += 0.04;
+      }
+
       return {
         ...event,
         local_judge: localJudge,
@@ -1108,7 +1319,12 @@ async function rerankWithLocalJudge(events, embedText, cosineSimilarity, limit =
   );
 
   return [...judged, ...trailing]
-    .filter((event) => !event.local_judge?.shouldSkip)
+    .filter(
+      (event) =>
+        !event.local_judge?.shouldSkip &&
+        !event.capture_intent?.shouldSkip &&
+        !event.clutter_audit?.shouldSkip
+    )
     .sort((left, right) => right.score - left.score || right.timestamp - left.timestamp);
 }
 
@@ -1428,6 +1644,52 @@ function buildAggregateAnswer(queryLabel, label, sessions, rankedEvents, limit, 
   };
 }
 
+function buildExactListAnswer(operator, results, sessionsById) {
+  const label =
+    operator.name === "month"
+      ? operator.label || formatMonthKey(operator.anchor)
+      : operator.anchor;
+  const decorated = selectRepresentativeEvents(results, sessionsById, Math.min(results.length, 12));
+
+  const overview =
+    operator.name === "month"
+      ? `Memories from "${label}"`
+      : operator.name === "search_query"
+        ? `Searches for "${label}"`
+        : operator.name === "topic"
+          ? `Pages about "${label}"`
+          : operator.name === "seen"
+            ? `Where you saw "${label}"`
+            : `Local matches for "${label}"`;
+
+  const summary =
+    operator.name === "month"
+      ? `Found ${pluralize(decorated.length, "captured memory")} from ${label}.`
+      : operator.name === "search_query"
+        ? `Found ${pluralize(decorated.length, "captured search")} for ${quoteLabel(label)}.`
+        : `Found ${pluralize(decorated.length, "exact local match")} for ${quoteLabel(label)}.`;
+
+  return {
+    results: decorated,
+    answer: {
+      overview,
+      answer: label,
+      summary,
+      detailItems: [
+        operator.name === "month"
+          ? { label: "Month", value: label }
+          : { label: "Filter", value: label },
+        { label: "Matches", value: `${decorated.length}` },
+      ],
+      signals: [],
+      sessionSummary: "",
+      sessionPrompts: [],
+      relatedQueries: [],
+      detailsLabel: "Matching memories",
+    },
+  };
+}
+
 export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText, cosineSimilarity }) {
   const normalizedQuery = normalizeText(query, 400);
   if (!normalizedQuery) {
@@ -1454,6 +1716,10 @@ export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText
   }
 
   const operator = detectOperator(normalizedQuery);
+  const exactRankedEvents = dedupeRankedEvents(exactRetrieve(operator, events)).map((event) => ({
+    ...event,
+    session_id: event.session_id || eventToSession.get(event.id) || 0,
+  }));
   const initiallyRankedEvents = rerankWithSessionContext(
     await rankEvents(operator.anchor || normalizedQuery, events, embedText, cosineSimilarity, {
       appHint: operator.name === "app" ? operator.anchor : "",
@@ -1471,8 +1737,16 @@ export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText
     session_id: event.session_id || eventToSession.get(event.id) || 0,
   }));
 
-  const directEvents = rankedEventsAll.filter((event) => !isSearchResultsPage(event));
-  const rankedEvents = directEvents.length ? directEvents : rankedEventsAll;
+  const combinedRankedEvents = dedupeRankedEvents([
+    ...exactRankedEvents,
+    ...rankedEventsAll,
+  ]).map((event) => ({
+    ...event,
+    session_id: event.session_id || eventToSession.get(event.id) || 0,
+  }));
+
+  const directEvents = combinedRankedEvents.filter((event) => !isSearchResultsPage(event));
+  const rankedEvents = directEvents.length ? directEvents : combinedRankedEvents;
 
   if (!rankedEvents.length) {
     return buildMatchAnswer(normalizedQuery, [], null);
@@ -1518,6 +1792,10 @@ export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText
     if (matchedSessions.length) {
       return buildAggregateAnswer(operator.anchor, toTitleCase(operator.anchor), matchedSessions, rankedEvents, Math.min(limit, 10), "app");
     }
+  }
+
+  if (["month", "search_query", "topic", "seen"].includes(operator.name) && exactRankedEvents.length) {
+    return buildExactListAnswer(operator, exactRankedEvents, sessionsById);
   }
 
   const results = selectRepresentativeEvents(rankedEvents, sessionsById, Math.min(limit, 12));

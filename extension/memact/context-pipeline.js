@@ -909,12 +909,16 @@ export function buildSuggestionQueries(raw, options = {}) {
 
   const quotedTitle = profile.title ? quoteForQuestion(profile.title) : "";
   const quotedSubject = profile.subject ? quoteForQuestion(profile.subject) : "";
+  const allowTopicSuggestions =
+    profile.captureIntent?.captureMode !== "metadata" &&
+    !profile.clutterAudit?.shouldSkip &&
+    (profile.clutterAudit?.organizationScore ?? 1) >= 0.34;
 
   if (quotedTitle && profile.title.length <= 120) {
     add(`Where did I see ${quotedTitle}?`, "Recent page");
   }
 
-  if (quotedSubject && quotedSubject.toLowerCase() !== quotedTitle.toLowerCase()) {
+  if (allowTopicSuggestions && quotedSubject && quotedSubject.toLowerCase() !== quotedTitle.toLowerCase()) {
     if (profile.pageType === "docs") {
       add(`Show documentation for ${quotedSubject}`, "Recent topic");
     } else if (profile.pageType === "video") {
@@ -930,7 +934,7 @@ export function buildSuggestionQueries(raw, options = {}) {
       quoteForQuestion(value).toLowerCase() !== quotedSubject.toLowerCase() &&
       quoteForQuestion(value).toLowerCase() !== quotedTitle.toLowerCase()
   );
-  if (entity) {
+  if (allowTopicSuggestions && entity) {
     add(`Show pages related to ${quoteForQuestion(entity)}`, "Recent topic");
   }
 
@@ -997,6 +1001,18 @@ export function extractContextProfile(raw) {
   const displayUrl = buildDisplayUrl(url, pageType);
   const displayFullText = buildDisplayFullText({ url, domain, snippet, fullText }, pageType);
   const searchResults = pageType === "search" ? extractSearchResultItems({ url, snippet, fullText }) : [];
+  const captureIntent =
+    stored.captureIntent && typeof stored.captureIntent === "object"
+      ? stored.captureIntent
+      : raw?.captureIntent && typeof raw.captureIntent === "object"
+        ? raw.captureIntent
+        : null;
+  const clutterAudit =
+    stored.clutterAudit && typeof stored.clutterAudit === "object"
+      ? stored.clutterAudit
+      : raw?.clutterAudit && typeof raw.clutterAudit === "object"
+        ? raw.clutterAudit
+        : null;
   const contextText = buildContextText({
     subject,
     entities,
@@ -1031,6 +1047,8 @@ export function extractContextProfile(raw) {
     rawFullText: fullText,
     searchResults,
     contextText,
+    captureIntent,
+    clutterAudit,
     localJudge: stored.localJudge || raw?.localJudge || null,
   };
 }
@@ -1049,6 +1067,14 @@ export function shouldSkipCaptureProfile(profileOrRaw) {
     return true;
   }
 
+  if (profile.captureIntent?.shouldSkip) {
+    return true;
+  }
+
+  if (profile.clutterAudit?.shouldSkip) {
+    return true;
+  }
+
   if (isSearchEngineHomePage(profile)) {
     return true;
   }
@@ -1062,6 +1088,14 @@ export function shouldSkipCaptureProfile(profileOrRaw) {
     SEARCH_ENGINE_DOMAINS.has(profile.domain) &&
     !extractQueryValue(profile.url) &&
     (!lowValueText || SEARCH_HOME_NOISE_PATTERNS.some((pattern) => pattern.test(lowValueText)))
+    ) {
+    return true;
+  }
+
+  if (
+    profile.captureIntent?.captureMode === "metadata" &&
+    profile.clutterAudit?.clutterScore >= 0.78 &&
+    !extractQueryValue(profile.url)
   ) {
     return true;
   }

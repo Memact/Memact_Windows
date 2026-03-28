@@ -41,75 +41,6 @@ function toTitleCase(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-function detectBrowser() {
-  if (typeof navigator === 'undefined') {
-    return {
-      name: 'Google Chrome',
-      extensionsUrl: 'chrome://extensions/',
-      helpUrl: 'https://support.google.com/chrome_webstore/answer/2664769',
-      supported: true,
-      isDefault: true,
-    }
-  }
-
-  const ua = navigator.userAgent
-  if (ua.includes('Edg/')) {
-    return {
-      name: 'Microsoft Edge',
-      extensionsUrl: 'edge://extensions/',
-      helpUrl:
-        'https://learn.microsoft.com/microsoft-edge/extensions-chromium/getting-started/extension-sideloading',
-      supported: true,
-      isDefault: true,
-    }
-  }
-  if (ua.includes('Firefox/')) {
-    return {
-      name: 'Mozilla Firefox',
-      extensionsUrl: 'about:addons',
-      helpUrl:
-        'https://support.mozilla.org/kb/find-and-install-add-ons-add-features-to-firefox',
-      supported: false,
-      isDefault: true,
-    }
-  }
-  if (ua.includes('OPR/') || ua.includes('Opera')) {
-    return {
-      name: 'Opera',
-      extensionsUrl: 'opera://extensions/',
-      helpUrl: 'https://help.opera.com/en/extensions/',
-      supported: true,
-      isDefault: true,
-    }
-  }
-  if (ua.includes('Vivaldi/')) {
-    return {
-      name: 'Vivaldi',
-      extensionsUrl: 'vivaldi://extensions/',
-      helpUrl: 'https://help.vivaldi.com/desktop/appearance-customization/extensions/',
-      supported: true,
-      isDefault: true,
-    }
-  }
-  if (navigator.brave) {
-    return {
-      name: 'Brave',
-      extensionsUrl: 'brave://extensions/',
-      helpUrl:
-        'https://support.brave.com/hc/en-us/articles/360017909112-How-can-I-add-extensions-to-Brave',
-      supported: true,
-      isDefault: true,
-    }
-  }
-  return {
-    name: 'Google Chrome',
-    extensionsUrl: 'chrome://extensions/',
-    helpUrl: 'https://support.google.com/chrome_webstore/answer/2664769',
-    supported: true,
-    isDefault: true,
-  }
-}
-
 function openExternal(url) {
   if (!url) return
   window.open(url, '_blank', 'noreferrer')
@@ -236,48 +167,72 @@ function ClearMemoriesDialog({ clearing, errorMessage, onConfirm, onClose }) {
   )
 }
 
-function BrowserSetupDialog({ browserInfo, extensionDetected, extensionReady, onClose }) {
+function BrowserSetupDialog({ browserInfo, mode, extensionDetected, extensionReady, onClose }) {
+  const isPhoneMode = browserInfo.mobile
+  const needsDesktopSetup = mode === 'bridge-required'
+  const isDesktopFallback = !isPhoneMode && mode === 'web-fallback'
+
+  const title = isPhoneMode
+    ? 'Phone browser mode'
+    : needsDesktopSetup
+      ? 'Connect your browser'
+      : 'Browser support'
+  const subtitle = isPhoneMode
+    ? 'Memact now fits on phone browsers too. Saved local web memories stay on this device, while automatic browsing capture still belongs on desktop Edge.'
+    : needsDesktopSetup
+      ? 'Set up the desktop Edge extension once, then Memact can capture and search browser memories automatically on this device.'
+      : 'Memact is running in local web mode here. Automatic browser capture is still set up through desktop Edge.'
+  const helperTitle = isPhoneMode ? 'PHONE BROWSER' : needsDesktopSetup ? 'DESKTOP EDGE' : 'LOCAL WEB MODE'
+  const helperText = isPhoneMode
+    ? 'Phone browsers can open and search local web memories here. For automatic background capture, continue on desktop Edge.'
+    : needsDesktopSetup
+      ? 'Open memact.com, then finish the Edge extension setup there if you want automatic browser memory on desktop.'
+      : 'This browser can open the Memact UI and local web memories, but automatic capture is not enabled here.'
+
   const metaText = extensionDetected
     ? extensionReady
       ? 'Connected to this page. Local memory is ready.'
       : 'Connected to this page. Local memory is still preparing.'
-    : browserInfo.supported
-      ? 'Default browser detected locally. Continue setup on memact.com.'
-      : 'Detected locally, but automatic setup is not supported.'
+    : isPhoneMode
+      ? 'Running locally in phone browser mode.'
+      : needsDesktopSetup
+        ? 'Desktop Edge setup is recommended for automatic capture.'
+        : 'Running locally in web fallback mode.'
 
   return (
     <GlassDialog
-      title="Connect your browser"
-      subtitle="Pick a browser once. Memact will take you to memact.com so you can finish setup there."
+      title={title}
+      subtitle={subtitle}
       onClose={onClose}
       footer={
         <>
-          <button
-            type="button"
-            className="dialog-secondary-button"
-            onClick={() => openExternal(MEMACT_SITE_URL)}
-          >
-            Open memact.com
-          </button>
+          {!isPhoneMode ? (
+            <button
+              type="button"
+              className="dialog-secondary-button"
+              onClick={() => openExternal(MEMACT_SITE_URL)}
+            >
+              Open memact.com
+            </button>
+          ) : null}
           <button type="button" className="dialog-primary-button" onClick={onClose}>
-            Later
+            {isPhoneMode ? 'OK' : 'Close'}
           </button>
         </>
       }
     >
       <div className="helper-card">
-        <span className="helper-title">QUICK SETUP</span>
-        <p className="helper-text">
-          Open memact.com to continue setup, then load the Memact extension in your browser if it
-          is not already installed.
-        </p>
+        <span className="helper-title">{helperTitle}</span>
+        <p className="helper-text">{helperText}</p>
       </div>
 
       <div className="browser-tile">
         <div className="browser-copy">
           <div className="browser-title-row">
             <span className="browser-name">{browserInfo.name}</span>
-            {browserInfo.isDefault ? <span className="browser-default-badge">Default browser</span> : null}
+            <span className="browser-default-badge">
+              {isPhoneMode ? 'Phone browser' : 'Current browser'}
+            </span>
             {extensionDetected ? (
               <span className="browser-connected-badge">
                 {extensionReady ? 'Connected' : 'Detected'}
@@ -285,16 +240,19 @@ function BrowserSetupDialog({ browserInfo, extensionDetected, extensionReady, on
             ) : null}
           </div>
           <p className="browser-meta">{metaText}</p>
-          <p className="browser-url">{MEMACT_SITE_URL}</p>
+          <p className="browser-url">
+            {isPhoneMode || isDesktopFallback ? 'Local web memories stay on this device.' : MEMACT_SITE_URL}
+          </p>
         </div>
-        <button
-          type="button"
-          className="dialog-primary-button"
-          disabled={!browserInfo.supported}
-          onClick={() => openExternal(MEMACT_SITE_URL)}
-        >
-          Open setup
-        </button>
+        {!isPhoneMode ? (
+          <button
+            type="button"
+            className="dialog-primary-button"
+            onClick={() => openExternal(MEMACT_SITE_URL)}
+          >
+            {needsDesktopSetup ? 'Open setup' : 'Open site'}
+          </button>
+        ) : null}
       </div>
     </GlassDialog>
   )
@@ -441,11 +399,11 @@ function MemoryDetailDialog({ result, onOpen, onClose }) {
 }
 
 
-function OverflowMenu({ style, onClose, onAction }) {
+function OverflowMenu({ style, setupLabel, onAction }) {
   return (
     <div className="menu-surface" style={style} role="menu">
       <button type="button" className="menu-item" onClick={() => onAction('setup')}>
-        Install Browser Extension
+        {setupLabel}
       </button>
       <button type="button" className="menu-item" onClick={() => onAction('history')}>
         Search History
@@ -501,7 +459,7 @@ export default function Search({ extension }) {
   }, [])
 
   useEffect(() => {
-    if (!bootComplete || extension?.detected || setupPromptShown) {
+    if (!bootComplete || !extension?.requiresBridge || setupPromptShown) {
       return
     }
 
@@ -512,14 +470,14 @@ export default function Search({ extension }) {
     }, 1800)
 
     return () => window.clearTimeout(timer)
-  }, [bootComplete, extension?.detected, setupPromptShown])
+  }, [bootComplete, extension?.requiresBridge, setupPromptShown])
 
   useEffect(() => {
-    if (activeDialog === 'setup' && setupDialogAutoOpened && extension?.detected) {
+    if (activeDialog === 'setup' && setupDialogAutoOpened && !extension?.requiresBridge) {
       setActiveDialog(null)
       setSetupDialogAutoOpened(false)
     }
-  }, [activeDialog, extension?.detected, setupDialogAutoOpened])
+  }, [activeDialog, extension?.requiresBridge, setupDialogAutoOpened])
 
   useEffect(() => {
     if (!menuOpen) {
@@ -550,38 +508,80 @@ export default function Search({ extension }) {
     }
   }, [menuOpen])
 
-  const browserInfo = useMemo(() => detectBrowser(), [])
+  const browserInfo = extension?.environment || {
+    name: 'Browser',
+    mobile: false,
+    compactViewport: false,
+    setupSupported: false,
+    automaticCaptureSupported: false,
+  }
+  const compactUi = Boolean(browserInfo.mobile || browserInfo.compactViewport)
+  const isWebFallback = extension?.mode === 'web-fallback'
+  const setupLabel = browserInfo.mobile
+    ? 'Phone browser mode'
+    : extension?.requiresBridge
+      ? 'Desktop setup'
+      : 'Browser support'
 
   const suggestionItems = search.suggestions
   const resultCount = search.results.length
-  const resultsTitle = lastSubmittedQuery
-    ? resultCount
-      ? `${resultCount} local matches for "${lastSubmittedQuery}"`
-      : `No local matches for "${lastSubmittedQuery}"`
-    : 'Local matches'
-  const resultsSubtitle = resultCount
-    ? 'Sorted by context match and recency. Click any card to open the full saved memory.'
-    : 'Try a different phrase, app name, or site.'
+  const resultsTitle =
+    search.answerMeta?.overview ||
+    (lastSubmittedQuery
+      ? resultCount
+        ? `${resultCount} local matches for "${lastSubmittedQuery}"`
+        : `No local matches for "${lastSubmittedQuery}"`
+      : 'Local matches')
+  const resultsSubtitle =
+    search.answerMeta?.summary ||
+    (resultCount
+      ? isWebFallback
+        ? 'Sorted by exact title, URL, and saved text first, then by recency. Click any card to open the full saved memory.'
+        : 'Sorted by exact match first, then context match and recency. Click any card to open the full saved memory.'
+      : isWebFallback
+        ? browserInfo.mobile
+          ? 'No saved phone memories matched this search yet.'
+          : 'No saved local web memories matched this search yet.'
+        : 'Try a different phrase, app name, or site.')
 
   const showBackControls = Boolean(search.query.trim()) || resultsMode
   const showResults = resultsMode && !dockVisible && !search.loading
   const showLoadingBar = !bootComplete || search.loading
-  const menuStyle = menuRect
+  const menuStyle = compactUi
     ? {
-        top: `${Math.round(menuRect.bottom + 8)}px`,
-        left: `${Math.round(Math.max(12, menuRect.right - 240))}px`,
+        left: '12px',
+        right: '12px',
+        bottom: '12px',
       }
-    : undefined
+    : menuRect
+      ? {
+          top: `${Math.round(menuRect.bottom + 8)}px`,
+          left: `${Math.round(Math.max(12, menuRect.right - 240))}px`,
+        }
+      : undefined
 
   const statusText = useMemo(() => {
     if (!bootComplete) {
       return 'Starting your local memory engine...'
     }
     if (search.loading) {
-      return 'Searching locally...'
+      return isWebFallback ? 'Searching saved local memories...' : 'Searching locally...'
     }
-    if (extension?.detected && !extension?.ready) {
+    if (extension?.bridgeDetected && !extension?.ready) {
       return 'Browser connected. Preparing local memory...'
+    }
+    if (isWebFallback) {
+      if (showResults) {
+        return resultCount ? `${resultCount} local matches ready.` : 'No local matches for that search.'
+      }
+      if (extension?.webMemoryCount) {
+        return browserInfo.mobile
+          ? `${extension.webMemoryCount} phone memories ready locally.`
+          : `${extension.webMemoryCount} local web memories ready.`
+      }
+      return browserInfo.mobile
+        ? 'Ready for local phone memories.'
+        : 'Ready for local web memories.'
     }
     if (search.error && !resultsMode) {
       return search.error
@@ -595,8 +595,11 @@ export default function Search({ extension }) {
     return 'Ready.'
   }, [
     bootComplete,
-    extension?.detected,
+    browserInfo.mobile,
+    extension?.bridgeDetected,
     extension?.ready,
+    extension?.webMemoryCount,
+    isWebFallback,
     resultCount,
     resultsMode,
     search.error,
@@ -620,7 +623,7 @@ export default function Search({ extension }) {
       return
     }
 
-    if (!extension?.detected) {
+    if (extension?.requiresBridge) {
       setSetupDialogAutoOpened(false)
       setActiveDialog('setup')
       return
@@ -660,7 +663,8 @@ export default function Search({ extension }) {
     setMenuOpen(false)
 
     if (action === 'setup') {
-      openExternal(MEMACT_SITE_URL)
+      setSetupDialogAutoOpened(false)
+      setActiveDialog('setup')
       return
     }
     if (action === 'history') {
@@ -714,7 +718,11 @@ export default function Search({ extension }) {
 
   return (
     <>
-      <main className={`memact-page ${resultsMode ? 'is-results' : 'is-home'}`}>
+      <main
+        className={`memact-page ${resultsMode ? 'is-results' : 'is-home'} ${
+          compactUi ? 'is-compact' : ''
+        } ${browserInfo.mobile ? 'is-mobile' : ''}`}
+      >
         <div className="memact-root">
           <header className="top-bar">
             {resultsMode ? (
@@ -856,7 +864,7 @@ export default function Search({ extension }) {
 
       {menuOpen ? (
         <div ref={menuRef}>
-          <OverflowMenu style={menuStyle} onClose={() => setMenuOpen(false)} onAction={handleMenuAction} />
+          <OverflowMenu style={menuStyle} setupLabel={setupLabel} onAction={handleMenuAction} />
         </div>
       ) : null}
 
@@ -898,7 +906,8 @@ export default function Search({ extension }) {
       {activeDialog === 'setup' ? (
         <BrowserSetupDialog
           browserInfo={browserInfo}
-          extensionDetected={extension?.detected}
+          mode={extension?.mode}
+          extensionDetected={extension?.bridgeDetected}
           extensionReady={extension?.ready}
           onClose={() => {
             setSetupDialogAutoOpened(false)
