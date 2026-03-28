@@ -268,6 +268,127 @@ function ensureSentence(value) {
   return `${text}.`;
 }
 
+function countTokenHits(tokens, haystackText) {
+  if (!tokens.length) {
+    return 0;
+  }
+  const haystack = normalizeText(haystackText).toLowerCase();
+  if (!haystack) {
+    return 0;
+  }
+  let hits = 0;
+  for (const token of tokens) {
+    if (haystack.includes(token)) {
+      hits += 1;
+    }
+  }
+  return hits;
+}
+
+function genericPageTitle(title, domain = "") {
+  const normalizedTitle = normalizeText(title, 160).toLowerCase();
+  const normalizedDomain = normalizeText(domain, 160).toLowerCase();
+  if (!normalizedTitle) {
+    return true;
+  }
+  if (normalizedDomain && (normalizedTitle === normalizedDomain || normalizedTitle === normalizedDomain.replace(/^www\./, ""))) {
+    return true;
+  }
+  return [
+    "google",
+    "bing",
+    "duckduckgo",
+    "search",
+    "search results",
+    "home",
+    "new tab",
+    "untitled",
+  ].includes(normalizedTitle);
+}
+
+function factText(event) {
+  return (event.fact_items || []).map((item) => `${item.label} ${item.value}`).join(" ");
+}
+
+function exactFactMatch(event, anchor) {
+  return (
+    exactIncludes(factText(event), anchor) ||
+    (event.fact_items || []).some((item) => exactIncludes(item.value, anchor))
+  );
+}
+
+function exactSearchQueryMatch(event, anchor) {
+  return exactIncludes(eventSearchQuery(event), anchor);
+}
+
+function hasStrongExactSignal(event, anchor) {
+  return (
+    exactIncludes(event.context_subject, anchor) ||
+    exactIncludes(event.title, anchor) ||
+    exactFactMatch(event, anchor) ||
+    exactSearchQueryMatch(event, anchor)
+  );
+}
+
+function isLowValueEvent(event) {
+  const qualityLabel = normalizeText(event.local_judge?.qualityLabel).toLowerCase();
+  const captureMode = normalizeText(event.capture_intent?.captureMode).toLowerCase();
+  const pageType = normalizeText(event.page_type).toLowerCase();
+  const clutterScore = Number(event.clutter_audit?.clutterScore || 0);
+  const organizationScore = Number(event.clutter_audit?.organizationScore || 0);
+  const subject = normalizeText(event.context_subject, 140);
+  const excerptLength = normalizeText(event.display_excerpt || event.snippet, 0).length;
+  const fullTextLength = normalizeRichText(event.display_full_text || event.full_text || "", 0).length;
+
+  if (qualityLabel === "shell") {
+    return true;
+  }
+  if (clutterScore >= 0.84) {
+    return true;
+  }
+  if (captureMode === "metadata" && clutterScore >= 0.42) {
+    return true;
+  }
+  if (pageType === "web" && !subject && excerptLength < 140 && fullTextLength < 260) {
+    return true;
+  }
+  if (pageType === "web" && genericPageTitle(event.title, event.domain) && fullTextLength < 420) {
+    return true;
+  }
+  if (organizationScore <= 0.18 && excerptLength < 120 && fullTextLength < 220) {
+    return true;
+  }
+  return false;
+}
+
+function isMeaningfulDirectEvent(event) {
+  if (isSearchResultsPage(event) || isLowValueEvent(event)) {
+    return false;
+  }
+  if (normalizeText(event.local_judge?.qualityLabel).toLowerCase() === "meaningful") {
+    return true;
+  }
+  if ([
+    "article",
+    "docs",
+    "discussion",
+    "qa",
+    "repo",
+    "video",
+    "product",
+    "chat",
+    "social",
+    "lyrics",
+  ].includes(normalizeText(event.page_type).toLowerCase())) {
+    return true;
+  }
+  return Boolean(
+    normalizeText(event.context_subject) ||
+      (event.fact_items || []).length >= 2 ||
+      normalizeRichText(event.display_full_text || event.full_text || "", 0).length >= 320
+  );
+}
+
 function normalizeEvent(rawEvent) {
   const application = cleanAppName(rawEvent.application);
   const domain = hostnameFromUrl(rawEvent.url);
@@ -1044,15 +1165,15 @@ function detectOperator(query) {
 }
 
 function exactScoreForOperator(event, operator) {
-  let score = 0.4;
+  let score = 0.28;
   if (event.timestamp) {
     const recencyDays = (Date.now() - event.timestamp) / (1000 * 60 * 60 * 24);
-    score += Math.exp((-Math.log(2) * recencyDays) / 5) * 0.2;
+    score += Math.exp((-Math.log(2) * recencyDays) / 7) * 0.12;
   }
 
   if (operator.name === "domain") {
     if (exactIncludes(event.domain, operator.anchor)) score += 0.45;
-    if (exactIncludes(event.url, operator.anchor)) score += 0.2;
+    if (exactIncludes(event.url, operator.anchor)) score += 0.16;
     return score;
   }
 
@@ -1067,16 +1188,18 @@ function exactScoreForOperator(event, operator) {
   }
 
   if (operator.name === "search_query") {
-    if (event.page_type === "search") score += 0.2;
-    if (exactIncludes(eventSearchQuery(event), operator.anchor)) score += 0.45;
+    if (event.page_type === "search") score += 0.22;
+    if (exactSearchQueryMatch(event, operator.anchor)) score += 0.52;
     if (exactIncludes(event.title, operator.anchor)) score += 0.12;
     return score;
   }
 
   const haystack = eventSubjectHaystack(event);
-  if (exactIncludes(event.context_subject, operator.anchor)) score += 0.45;
-  if (exactIncludes(event.title, operator.anchor)) score += 0.3;
-  if (exactIncludes(haystack, operator.anchor)) score += 0.18;
+  if (exactIncludes(event.context_subject, operator.anchor)) score += 0.52;
+  if (exactIncludes(event.title, operator.anchor)) score += 0.42;
+  if (exactFactMatch(event, operator.anchor)) score += 0.28;
+  if (exactSearchQueryMatch(event, operator.anchor)) score += 0.34;
+  if (exactIncludes(haystack, operator.anchor)) score += 0.12;
   return score;
 }
 
@@ -1095,17 +1218,20 @@ function exactRetrieve(operator, events) {
       case "search_query":
         return (
           event.page_type === "search" &&
-          (exactIncludes(eventSearchQuery(event), operator.anchor) ||
+          (exactSearchQueryMatch(event, operator.anchor) ||
             exactIncludes(event.title, operator.anchor))
         );
       case "topic":
       case "seen":
       case "match":
-        return (
-          exactIncludes(event.context_subject, operator.anchor) ||
-          exactIncludes(event.title, operator.anchor) ||
-          exactIncludes(eventSubjectHaystack(event), operator.anchor)
-        );
+        if (isLowValueEvent(event) && !hasStrongExactSignal(event, operator.anchor)) {
+          return false;
+        }
+        if (isSearchResultsPage(event)) {
+          return exactSearchQueryMatch(event, operator.anchor);
+        }
+        return hasStrongExactSignal(event, operator.anchor) ||
+          (!isLowValueEvent(event) && exactIncludes(eventSubjectHaystack(event), operator.anchor));
       default:
         return false;
     }
@@ -1133,6 +1259,7 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
   const tokens = meaningfulTokens(normalizedText);
   const domainHint = hostnameFromUrl(normalizedText) || "";
   const appHint = normalizeText(options.appHint).toLowerCase();
+  const operatorName = normalizeText(options.operatorName || "match").toLowerCase();
   const normalizedQueryLower = normalizedText.toLowerCase();
   const now = Date.now();
 
@@ -1143,6 +1270,8 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
       const urlLower = canonicalUrl(event.url || "");
       const fullTextLower = String(event.full_text || "").toLowerCase();
       const contextLower = String(event.context_text || "").toLowerCase();
+      const factsLower = factText(event).toLowerCase();
+      const searchQueryLower = eventSearchQuery(event).toLowerCase();
       const lexical = tokenCoverage(tokens, [
         event.title,
         event.snippet,
@@ -1159,56 +1288,110 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
       const subjectBoost = tokenCoverage(tokens, event.context_subject);
       const entityBoost = tokenCoverage(tokens, event.context_entities.join(" "));
       const topicBoost = tokenCoverage(tokens, event.context_topics.join(" "));
-      const factBoost = tokenCoverage(
-        tokens,
-        (event.fact_items || []).map((item) => `${item.label} ${item.value}`).join(" ")
-      );
+      const factBoost = tokenCoverage(tokens, factText(event));
+      const searchQueryBoost = tokenCoverage(tokens, eventSearchQuery(event));
       const contextBoost = tokenCoverage(tokens, event.context_text);
+      const tokenHitCount = countTokenHits(tokens, [
+        event.title,
+        event.context_subject,
+        factText(event),
+        event.context_entities.join(" "),
+        event.context_topics.join(" "),
+        eventSearchQuery(event),
+      ].join(" "));
       const exactTitleMatch = normalizedQueryLower && titleLower.includes(normalizedQueryLower) ? 1 : 0;
       const exactUrlMatch = normalizedQueryLower && urlLower.includes(normalizedQueryLower) ? 1 : 0;
       const exactSnippetMatch = normalizedQueryLower && snippetLower.includes(normalizedQueryLower) ? 1 : 0;
       const exactBodyMatch = normalizedQueryLower && fullTextLower.includes(normalizedQueryLower) ? 1 : 0;
       const exactSubjectMatch =
         normalizedQueryLower && contextLower.includes(normalizedQueryLower) ? 1 : 0;
+      const exactFactValueMatch = normalizedQueryLower && factsLower.includes(normalizedQueryLower) ? 1 : 0;
+      const exactSearchQueryValueMatch =
+        normalizedQueryLower && searchQueryLower.includes(normalizedQueryLower) ? 1 : 0;
       const domainBoost = domainHint && event.domain === domainHint ? 1 : 0;
       const appBoost = appHint && event.application.toLowerCase().includes(appHint) ? 1 : 0;
       const recencyDays = event.timestamp ? (now - event.timestamp) / (1000 * 60 * 60 * 24) : 999;
       const recencyBoost = event.timestamp ? Math.exp((-Math.log(2) * recencyDays) / 3) : 0;
-      const searchResultsPenalty = isSearchResultsPage(event) ? 0.34 : 0;
+      const clutterScore = Number(event.clutter_audit?.clutterScore || 0);
+      const organizationScore = Number(event.clutter_audit?.organizationScore || 0);
+      const captureMode = normalizeText(event.capture_intent?.captureMode).toLowerCase();
+      const qualityLabel = normalizeText(event.local_judge?.qualityLabel).toLowerCase();
+      const strongExactSignal =
+        exactTitleMatch ||
+        exactSubjectMatch ||
+        exactFactValueMatch ||
+        exactSearchQueryValueMatch;
+      const searchResultsPenalty =
+        isSearchResultsPage(event) && operatorName !== "search_query" ? 0.42 : isSearchResultsPage(event) ? 0.08 : 0;
+      const metadataPenalty = captureMode === "metadata" ? 0.18 : 0;
+      const shellPenalty = qualityLabel === "shell" ? 0.4 : 0;
+      const genericWebPenalty =
+        normalizeText(event.page_type).toLowerCase() === "web" &&
+        !strongExactSignal &&
+        lexical < 0.28 &&
+        semantic < 0.42
+          ? 0.12
+          : 0;
+      const clutterPenalty =
+        clutterScore >= 0.78 ? 0.3 : clutterScore >= 0.6 ? 0.16 : clutterScore >= 0.46 ? 0.08 : 0;
+      const organizationBonus = organizationScore >= 0.74 ? 0.04 : 0;
+      const meaningfulBonus = qualityLabel === "meaningful" ? 0.06 : 0;
+      const captureBonus =
+        captureMode === "full" ? 0.05 : captureMode === "structured" ? 0.01 : 0;
+      const lowValuePenalty = isLowValueEvent(event) && !strongExactSignal ? 0.24 : 0;
+      const recencyWeight =
+        strongExactSignal || lexical >= 0.28 || semantic >= 0.45 || tokenHitCount >= Math.max(2, tokens.length - 1)
+          ? 0.16
+          : 0.06;
       const score =
-        semantic * 0.2 +
-        lexical * 0.12 +
-        titleBoost * 0.16 +
-        keyphraseBoost * 0.05 +
-        fullTextBoost * 0.05 +
-        subjectBoost * 0.08 +
-        entityBoost * 0.06 +
-        topicBoost * 0.05 +
-        factBoost * 0.05 +
+        semantic * 0.18 +
+        lexical * 0.16 +
+        titleBoost * 0.18 +
+        keyphraseBoost * 0.04 +
+        fullTextBoost * 0.04 +
+        subjectBoost * 0.14 +
+        entityBoost * 0.07 +
+        topicBoost * 0.06 +
+        factBoost * 0.08 +
+        searchQueryBoost * 0.1 +
         contextBoost * 0.08 +
-        exactTitleMatch * 0.1 +
-        exactSubjectMatch * 0.08 +
-        exactUrlMatch * 0.04 +
+        exactTitleMatch * 0.16 +
+        exactSubjectMatch * 0.14 +
+        exactFactValueMatch * 0.12 +
+        exactSearchQueryValueMatch * 0.14 +
+        exactUrlMatch * 0.02 +
         exactSnippetMatch * 0.03 +
-        exactBodyMatch * 0.03 +
-        domainBoost * 0.02 +
-        appBoost * 0.02 +
-        recencyBoost * 0.24 -
-        searchResultsPenalty;
+        exactBodyMatch * 0.02 +
+        domainBoost * 0.06 +
+        appBoost * 0.04 +
+        recencyBoost * recencyWeight +
+        meaningfulBonus +
+        captureBonus +
+        organizationBonus -
+        searchResultsPenalty -
+        metadataPenalty -
+        shellPenalty -
+        genericWebPenalty -
+        clutterPenalty -
+        lowValuePenalty;
       return {
         ...event,
         similarity: semantic,
         lexical_score: lexical,
         recency_score: recencyBoost,
         exact_title_match: exactTitleMatch,
+        exact_subject_match: exactSubjectMatch,
+        exact_fact_match: exactFactValueMatch,
+        exact_search_query_match: exactSearchQueryValueMatch,
         exact_url_match: exactUrlMatch,
         context_score: contextBoost,
+        token_hit_count: tokenHitCount,
         score,
       };
     });
 
   const strongestDirectScore = scored.reduce((max, event) => {
-    return isSearchResultsPage(event) ? max : Math.max(max, event.score);
+    return isMeaningfulDirectEvent(event) ? Math.max(max, event.score) : max;
   }, 0);
 
   return scored
@@ -1217,7 +1400,11 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
         return event;
       }
       const demotion =
-        strongestDirectScore && strongestDirectScore >= event.score - 0.06 ? 0.16 : 0;
+        operatorName !== "search_query" &&
+        strongestDirectScore &&
+        strongestDirectScore >= event.score - 0.04
+          ? 0.22
+          : 0;
       return {
         ...event,
         score: event.score - demotion,
@@ -1226,12 +1413,17 @@ async function rankEvents(text, events, embedText, cosineSimilarity, options = {
     })
     .filter(
       (event) =>
-        event.score >= 0.14 ||
+        event.score >= 0.18 ||
         event.lexical_score >= 0.22 ||
         event.exact_title_match > 0 ||
+        event.exact_subject_match > 0 ||
+        event.exact_fact_match > 0 ||
+        event.exact_search_query_match > 0 ||
         event.exact_url_match > 0 ||
-        event.context_score >= 0.26
+        event.context_score >= 0.26 ||
+        (event.similarity >= 0.52 && event.token_hit_count >= Math.max(1, Math.floor(tokens.length / 2)))
     )
+    .filter((event) => !isLowValueEvent(event) || hasStrongExactSignal(event, normalizedText))
     .sort((left, right) => right.score - left.score || right.timestamp - left.timestamp);
 }
 
@@ -1389,16 +1581,16 @@ function buildSessionSummary(session) {
   }
   const parts = [`From session: ${session.label}`];
   if (session.events.length) {
-    parts.push(`${session.events.length} events`);
+    parts.push(pluralize(session.events.length, "event"));
   }
   if (session.upstream?.length) {
-    parts.push(`${session.upstream.length} before`);
+    parts.push(pluralize(session.upstream.length, "earlier link"));
   }
   if (session.downstream?.length) {
-    parts.push(`${session.downstream.length} after`);
+    parts.push(pluralize(session.downstream.length, "later link"));
   }
   if (session.foundationalEvents?.length) {
-    parts.push(`${session.foundationalEvents.length} foundational`);
+    parts.push(pluralize(session.foundationalEvents.length, "foundational memory"));
   }
   return parts.join(" - ");
 }
@@ -1495,9 +1687,9 @@ function buildMatchAnswer(query, results, primarySession) {
     return {
       results: [],
       answer: {
-        overview: "",
-        answer: `No strong local match was found for "${query}".`,
-        summary: "Try another phrase, or search by app or site.",
+        overview: `Results for "${query}"`,
+        answer: "No strong local result",
+        summary: "Try a more specific phrase, app, site, or date.",
         detailItems: [],
         signals: [],
         sessionSummary: "",
@@ -1516,21 +1708,28 @@ function buildMatchAnswer(query, results, primarySession) {
     { label: "Evidence", value: `${evidenceCount} matching captures` },
   ].filter(Boolean);
 
-  let summary = ensureSentence(
+  const summaryParts = [
+    `Showing ${pluralize(results.length, "strong local match")}.`,
+    ensureSentence(
     primary.structured_summary ||
       (primary.domain ? `Saved page from ${primary.domain}` : "") ||
       "This is a strong local match"
-  );
-  if (primarySession) {
-    summary = `${summary} The most relevant match came from the session ${quoteLabel(primarySession.label)}.`;
+    ),
+  ];
+  if (primary.duplicate_count > 1) {
+    summaryParts.push(`This page was captured ${primary.duplicate_count} times.`);
   }
+  if (primarySession) {
+    summaryParts.push(`Most relevant session: ${quoteLabel(primarySession.label)}.`);
+  }
+  const summary = compactText(summaryParts.join(" "), 280);
 
   return {
     results,
     answer: {
-      overview: `Top local match for "${query}"`,
+      overview: `Results for "${query}"`,
       answer: primary.title,
-      summary: compactText(summary, 280),
+      summary,
       detailItems,
       signals: primary.keyphrases.slice(0, 5),
       sessionSummary: buildSessionSummary(primarySession),
@@ -1627,7 +1826,7 @@ function buildAggregateAnswer(queryLabel, label, sessions, rankedEvents, limit, 
       overview: kind === "domain" ? `Activity from "${queryLabel}"` : `What you were doing in "${queryLabel}"`,
       answer: label,
       summary: primary
-        ? `Found ${pluralize(sessions.length, "related session")} and ${pluralize(totalEvents, "captured moment")}. The most recent session is ${quoteLabel(primary.label)}.`
+        ? `Found ${pluralize(sessions.length, "related session")} and ${pluralize(totalEvents, "captured moment")} for ${label}. Most recent session: ${quoteLabel(primary.label)}.`
         : `Found local activity for ${label}.`,
       detailItems: [
         { label: kind === "domain" ? "Site" : "App", value: label },
@@ -1723,6 +1922,7 @@ export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText
   const initiallyRankedEvents = rerankWithSessionContext(
     await rankEvents(operator.anchor || normalizedQuery, events, embedText, cosineSimilarity, {
       appHint: operator.name === "app" ? operator.anchor : "",
+      operatorName: operator.name,
     })
   );
 
@@ -1745,8 +1945,18 @@ export async function answerLocalQuery({ query, limit = 20, rawEvents, embedText
     session_id: event.session_id || eventToSession.get(event.id) || 0,
   }));
 
-  const directEvents = combinedRankedEvents.filter((event) => !isSearchResultsPage(event));
-  const rankedEvents = directEvents.length ? directEvents : combinedRankedEvents;
+  const meaningfulDirectEvents = combinedRankedEvents.filter((event) => isMeaningfulDirectEvent(event));
+  const directEvents = combinedRankedEvents.filter(
+    (event) => !isSearchResultsPage(event) && !isLowValueEvent(event)
+  );
+  const viableFallbackEvents = combinedRankedEvents.filter(
+    (event) => !isLowValueEvent(event) || hasStrongExactSignal(event, operator.anchor || normalizedQuery)
+  );
+  const rankedEvents = meaningfulDirectEvents.length
+    ? meaningfulDirectEvents
+    : directEvents.length
+      ? directEvents
+      : viableFallbackEvents;
 
   if (!rankedEvents.length) {
     return buildMatchAnswer(normalizedQuery, [], null);

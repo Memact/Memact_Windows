@@ -3,27 +3,91 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Local browser memory search." />
+    <meta
+      name="description"
+      content="Memact helps you search browser memories, inspect captured context, and reopen saved browsing moments stored locally on your device."
+    />
     <meta name="robots" content="index,follow" />
+    <meta
+      name="googlebot"
+      content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+    />
     <meta name="theme-color" content="#00011B" />
+    <meta name="application-name" content="Memact" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Memact" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
+    <meta property="og:site_name" content="Memact" />
     <meta property="og:title" content="Memact | Query the Past." />
-    <meta property="og:description" content="Local browser memory search." />
+    <meta
+      property="og:description"
+      content="Search browser memories, inspect captured context, and revisit saved browsing moments with Memact."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://www.memact.com" />
+    <meta property="og:image" content="https://www.memact.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="532" />
+    <meta property="og:image:height" content="179" />
+    <meta property="og:image:alt" content="Memact logo" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Memact | Query the Past." />
-    <meta name="twitter:description" content="Local browser memory search." />
+    <meta
+      name="twitter:description"
+      content="Search browser memories, inspect captured context, and revisit saved browsing moments with Memact."
+    />
+    <meta name="twitter:image" content="https://www.memact.com/og-image.png" />
     <title>Memact | Query the Past.</title>
     <link rel="canonical" href="https://www.memact.com/" />
     <link rel="icon" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "Memact",
+            "url": "https://www.memact.com/",
+            "description": "Memact helps you search browser memories, inspect captured context, and reopen saved browsing moments stored locally on your device.",
+            "inLanguage": "en"
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Memact",
+            "url": "https://www.memact.com/",
+            "applicationCategory": "ProductivityApplication",
+            "operatingSystem": "Web",
+            "browserRequirements": "Requires JavaScript. Automatic browser capture uses the optional Memact browser extension on supported desktop Chromium browsers.",
+            "description": "Memact helps you search browser memories, inspect captured context, and reopen saved browsing moments stored locally on your device.",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <main>
+        <h1>Memact</h1>
+        <p>
+          Memact helps you search browser memories, inspect captured context, and reopen saved
+          browsing moments stored locally on your device.
+        </p>
+        <p>
+          For the full app experience, enable JavaScript. Automatic browser capture on desktop uses
+          the optional Memact browser extension.
+        </p>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

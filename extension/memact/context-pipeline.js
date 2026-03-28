@@ -55,6 +55,61 @@ const GENERIC_SUBJECTS = new Set([
   "web",
 ]);
 
+const GENERIC_UI_TOKENS = new Set([
+  "about",
+  "account",
+  "advertising",
+  "apply",
+  "business",
+  "continue",
+  "discover",
+  "explore",
+  "gmail",
+  "help",
+  "home",
+  "images",
+  "learn",
+  "login",
+  "mode",
+  "more",
+  "new",
+  "next",
+  "open",
+  "privacy",
+  "results",
+  "search",
+  "settings",
+  "show",
+  "sign",
+  "store",
+  "terms",
+  "view",
+]);
+
+const LOW_VALUE_CANDIDATE_PATTERNS = [
+  /^about$/i,
+  /^apply$/i,
+  /^business$/i,
+  /^gmail$/i,
+  /^gmail images$/i,
+  /^how search works$/i,
+  /^images$/i,
+  /^new$/i,
+  /^official site$/i,
+  /^privacy$/i,
+  /^search results?$/i,
+  /^settings$/i,
+  /^show more$/i,
+  /^sign in$/i,
+  /^store$/i,
+  /^terms$/i,
+  /^view all$/i,
+  /^web results$/i,
+  /\boffered in\b/i,
+  /\bai mode\b/i,
+  /\bapply ai confidently\b/i,
+];
+
 const DOC_DOMAINS = new Set([
   "developer.mozilla.org",
   "docs.python.org",
@@ -296,12 +351,51 @@ function cleanTopic(value) {
     .trim();
 }
 
+function candidateTokens(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9+#./-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function looksLikeUiNoise(value) {
+  const cleaned = normalizeText(value, 160);
+  if (!cleaned) {
+    return true;
+  }
+  if (GENERIC_SUBJECTS.has(cleaned.toLowerCase())) {
+    return true;
+  }
+  if (LOW_VALUE_CANDIDATE_PATTERNS.some((pattern) => pattern.test(cleaned))) {
+    return true;
+  }
+
+  const tokens = candidateTokens(cleaned);
+  if (!tokens.length) {
+    return true;
+  }
+  if (tokens.every((token) => GENERIC_UI_TOKENS.has(token))) {
+    return true;
+  }
+  if (
+    tokens.length <= 3 &&
+    tokens.filter((token) => GENERIC_UI_TOKENS.has(token)).length >= Math.max(1, tokens.length - 1)
+  ) {
+    return true;
+  }
+  if (cleaned.length <= 10 && tokens.length === 1 && GENERIC_UI_TOKENS.has(tokens[0])) {
+    return true;
+  }
+  return false;
+}
+
 function usefulCandidate(value) {
   const cleaned = cleanTopic(value);
   if (!cleaned) {
     return "";
   }
-  if (GENERIC_SUBJECTS.has(cleaned.toLowerCase())) {
+  if (looksLikeUiNoise(cleaned)) {
     return "";
   }
   return cleaned;
@@ -348,6 +442,28 @@ function extractPatternCandidates(text) {
     }
   }
 
+  return matches;
+}
+
+function splitHeadlineSafe(text) {
+  return normalizeText(text)
+    .split(/\s+[|:]\s+|\s+-\s+|\s+\u2022\s+/)
+    .map((part) => usefulCandidate(part))
+    .filter(Boolean);
+}
+
+function extractQuotedPhrasesSafe(text) {
+  const matches = [];
+  const source = String(text || "");
+  for (const regex of [/["\u201c](.{2,80}?)["\u201d]/g, /'(.{2,80}?)'/g]) {
+    let match;
+    while ((match = regex.exec(source))) {
+      const candidate = usefulCandidate(match[1]);
+      if (candidate) {
+        matches.push(candidate);
+      }
+    }
+  }
   return matches;
 }
 
@@ -580,8 +696,10 @@ export function buildStructuredFacts(raw, pageType = inferPageType(raw)) {
   } else if (pageType === "search") {
     const query = extractQueryValue(raw.url || "");
     const engine = searchEngineName(raw.url || domain);
+    const resultCount = extractSearchResultItems(raw).length;
     if (query) facts.push({ label: "Query", value: query });
     if (engine) facts.push({ label: "Engine", value: engine });
+    if (resultCount) facts.push({ label: "Captured results", value: `${resultCount}` });
   } else if (pageType === "repo") {
     const repo = usefulCandidate((raw.entities || []).find((value) => value.includes("/")));
     if (repo) {
@@ -675,6 +793,9 @@ function extractSearchResultItems(raw) {
     if (!cleaned || isNoiseLine(cleaned)) {
       continue;
     }
+    if (looksLikeUiNoise(cleaned)) {
+      continue;
+    }
     if (query && cleaned.toLowerCase() === query.toLowerCase()) {
       continue;
     }
@@ -686,6 +807,9 @@ function extractSearchResultItems(raw) {
       continue;
     }
     if (cleaned.length < 12) {
+      continue;
+    }
+    if (cleaned.split(/\s+/).length < 2 && !/[/.:-]/.test(cleaned)) {
       continue;
     }
     candidates.push(cleaned);
@@ -705,14 +829,17 @@ export function buildDisplayExcerpt(raw, pageType = inferPageType(raw)) {
     const engine = searchEngineName(raw.url || raw.domain) || "Search";
     const items = extractSearchResultItems(raw).slice(0, 2);
     const lead = query ? `${engine} results for "${query}".` : `${engine} results page.`;
-    const details = items.join(" ");
+    const details = items.length ? `Top captured results: ${items.join("; ")}.` : "";
     return normalizeText(`${lead} ${details}`.trim(), 340);
   }
 
   const cleanedLines = [];
-  for (const rawLine of sourceText.split(/\n+/)) {
+  for (const rawLine of splitReadableLines(sourceText)) {
     const line = normalizeText(rawLine, 280).replace(/^lyrics\s*:\s*/i, "").trim();
     if (!line || isNoiseLine(line)) {
+      continue;
+    }
+    if (looksLikeUiNoise(line)) {
       continue;
     }
     if (cleanedLines[cleanedLines.length - 1]?.toLowerCase() === line.toLowerCase()) {
@@ -746,7 +873,7 @@ export function buildStructuredSummary(raw, pageType = inferPageType(raw), facts
   if (pageType === "search") {
     const query = facts.find((fact) => fact.label === "Query")?.value || "";
     const engine = facts.find((fact) => fact.label === "Engine")?.value || searchEngineName(site) || "Search";
-    return query ? `${engine} results page for "${query}".` : `${engine} results page on ${site}.`;
+    return query ? `${engine} search results for "${query}".` : `${engine} search results on ${site}.`;
   }
 
   if (pageType === "docs") {
@@ -825,8 +952,10 @@ function buildDisplayFullText(raw, pageType = inferPageType(raw)) {
       items.forEach((item, index) => {
         lines.push(`${index + 1}. ${item}`);
       });
-      return lines.join("\n");
+    } else {
+      lines.push("No clean result cards were captured.");
     }
+    return lines.join("\n");
   }
 
   return splitReadableLines(fullText).join("\n");
@@ -838,7 +967,7 @@ function chooseSubject({ selection, entities, topics, h1, title, domain, pageTyp
     entities[0],
     topics[0],
     usefulCandidate(h1),
-    splitHeadline(title)[0],
+    splitHeadlineSafe(title)[0],
     domain,
   ].filter(Boolean);
   const subject = preferred[0] || "";
@@ -854,11 +983,11 @@ function chooseSubject({ selection, entities, topics, h1, title, domain, pageTyp
 function buildEntities({ title, h1, selection, description, keyphrases }) {
   return dedupeStrings(
     [
-      ...extractQuotedPhrases(selection),
-      ...extractQuotedPhrases(title),
-      ...splitHeadline(selection),
-      ...splitHeadline(h1),
-      ...splitHeadline(title),
+      ...extractQuotedPhrasesSafe(selection),
+      ...extractQuotedPhrasesSafe(title),
+      ...splitHeadlineSafe(selection),
+      ...splitHeadlineSafe(h1),
+      ...splitHeadlineSafe(title),
       ...extractPatternCandidates(selection),
       ...extractPatternCandidates(h1),
       ...extractPatternCandidates(title),

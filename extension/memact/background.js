@@ -1065,6 +1065,12 @@ async function handleSuggestions(query, timeFilter, limit = 6) {
     if (shouldSkipCaptureProfile(profile)) {
       continue;
     }
+    if (profile.localJudge?.qualityLabel === "shell") {
+      continue;
+    }
+    if (profile.captureIntent?.captureMode === "metadata") {
+      continue;
+    }
     if (profile.clutterAudit?.clutterScore >= 0.82) {
       continue;
     }
@@ -1140,6 +1146,11 @@ async function handleSuggestions(query, timeFilter, limit = 6) {
   return [...candidates.values()]
     .filter((candidate) => candidateMatchesQuery(candidate.completion, query))
     .sort((left, right) => {
+      const leftQuality = left.category === "Recent topic" ? 1 : 0;
+      const rightQuality = right.category === "Recent topic" ? 1 : 0;
+      if (rightQuality !== leftQuality) {
+        return rightQuality - leftQuality;
+      }
       if (right.count !== left.count) {
         return right.count - left.count;
       }

@@ -1,0 +1,16 @@
+{
+  "name": "Memact",
+  "short_name": "Memact",
+  "description": "Memact helps you search browser memories, inspect captured context, and reopen saved browsing moments stored locally on your device.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#00011B",
+  "theme_color": "#00011B",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}
