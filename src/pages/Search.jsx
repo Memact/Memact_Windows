@@ -1061,9 +1061,11 @@ export default function Search({ extension }) {
   const [setupDialogAutoOpened, setSetupDialogAutoOpened] = useState(false)
   const [clearingMemories, setClearingMemories] = useState(false)
   const [clearMemoriesError, setClearMemoriesError] = useState('')
+  const [resultHistoryDepth, setResultHistoryDepth] = useState(0)
   const search = useSearch(extension, activeTimeFilter)
   const menuButtonRef = useRef(null)
   const menuRef = useRef(null)
+  const resultHistoryRef = useRef([])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1153,6 +1155,7 @@ export default function Search({ extension }) {
           ? 'No saved phone memories matched this search yet.'
           : 'No saved local web memories matched this search yet.'
         : 'Try a different phrase, app name, or site.')
+  const hasPreviousResults = resultHistoryDepth > 0
 
   const showBackControls = Boolean(search.query.trim()) || resultsMode
   const showResults = resultsMode && !dockVisible && !search.loading
@@ -1223,6 +1226,44 @@ export default function Search({ extension }) {
     setMenuOpen((current) => !current)
   }
 
+  const createResultSnapshot = () => {
+    const snapshotQuery = normalize(lastSubmittedQuery || search.query)
+    if (!resultsMode && !snapshotQuery && !search.results.length) {
+      return null
+    }
+
+    return {
+      query: snapshotQuery,
+      lastSubmittedQuery: snapshotQuery,
+      activeTimeFilter: activeTimeFilter || null,
+      results: Array.isArray(search.results) ? search.results : [],
+      answerMeta: search.answerMeta || null,
+    }
+  }
+
+  const pushResultHistory = () => {
+    const snapshot = createResultSnapshot()
+    if (!snapshot) {
+      return
+    }
+
+    const signature = JSON.stringify([
+      snapshot.lastSubmittedQuery.toLowerCase(),
+      snapshot.activeTimeFilter || '',
+      snapshot.results.map((item) => item.id).slice(0, 8),
+    ])
+    const previous = resultHistoryRef.current[resultHistoryRef.current.length - 1]
+    if (previous?.signature === signature) {
+      return
+    }
+
+    resultHistoryRef.current.push({
+      ...snapshot,
+      signature,
+    })
+    setResultHistoryDepth(resultHistoryRef.current.length)
+  }
+
   const handleSubmit = async (rawValue) => {
     const query = normalize(rawValue ?? search.query)
     if (!query) {
@@ -1239,6 +1280,11 @@ export default function Search({ extension }) {
       return
     }
 
+    const currentQuery = normalize(lastSubmittedQuery || search.query)
+    if (resultsMode && currentQuery && currentQuery.toLowerCase() !== query.toLowerCase()) {
+      pushResultHistory()
+    }
+
     setLastSubmittedQuery(query)
     setSelectedResult(null)
     await search.runSearch(query)
@@ -1246,6 +1292,8 @@ export default function Search({ extension }) {
   }
 
   const handleGoHome = (clearQuery = true) => {
+    resultHistoryRef.current = []
+    setResultHistoryDepth(0)
     setResultsMode(false)
     setSelectedResult(null)
     setLastSubmittedQuery('')
@@ -1254,6 +1302,22 @@ export default function Search({ extension }) {
     if (clearQuery) {
       search.setQuery('')
     }
+  }
+
+  const handleBack = () => {
+    setSelectedResult(null)
+
+    if (resultHistoryRef.current.length) {
+      const previous = resultHistoryRef.current.pop()
+      setResultHistoryDepth(resultHistoryRef.current.length)
+      setActiveTimeFilter(previous?.activeTimeFilter || null)
+      setLastSubmittedQuery(previous?.lastSubmittedQuery || '')
+      search.restoreSearchState(previous || {})
+      setResultsMode(true)
+      return
+    }
+
+    handleGoHome(true)
   }
 
   const handleReload = async () => {
@@ -1351,7 +1415,7 @@ export default function Search({ extension }) {
                   <MenuOrbButton
                     label="Back"
                     text={'\u2190'}
-                    onClick={() => handleGoHome(true)}
+                    onClick={handleBack}
                     hidden={!showBackControls}
                   />
                   <MenuOrbButton
@@ -1453,9 +1517,9 @@ export default function Search({ extension }) {
                   </div>
                 </div>
 
-                {resultCount ? (
-                  <div className="evidence-scroll evidence-scroll--results">
-                    <div className="evidence-stack">
+                  {resultCount ? (
+                    <div className="evidence-scroll evidence-scroll--results">
+                      <div className="evidence-stack">
                       {search.results.map((result) => (
                         <ResultCard
                           key={result.id}
@@ -1466,13 +1530,20 @@ export default function Search({ extension }) {
                       ))}
                     </div>
                   </div>
-                ) : (
-                  <div className="results-empty">
-                    <div className="results-empty__text">
-                      <MathRichText text="No saved page matched this search closely enough." />
+                  ) : (
+                    <div className="results-empty">
+                      <div className="results-empty__text">
+                        <MathRichText text="No saved page matched this search closely enough." />
+                        {hasPreviousResults ? (
+                          <>
+                            <br />
+                            <br />
+                            <MathRichText text="Press back to return to the previous results." />
+                          </>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </section>
             ) : null}
           </section>

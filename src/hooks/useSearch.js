@@ -654,6 +654,23 @@ export function useSearch(extension, activeTimeFilter = null) {
     [activeTimeFilter, extension, persistSearch]
   )
 
+  const restoreSearchState = useCallback((snapshot = {}) => {
+    latestSearchRef.current += 1
+    setLoading(false)
+    setError('')
+    setQuery(normalize(snapshot.query || snapshot.lastSubmittedQuery))
+    setResults(Array.isArray(snapshot.results) ? snapshot.results : [])
+    setAnswerMeta(snapshot.answerMeta || null)
+  }, [])
+
+  const clearResults = useCallback(() => {
+    latestSearchRef.current += 1
+    setLoading(false)
+    setError('')
+    setResults([])
+    setAnswerMeta(null)
+  }, [])
+
   const recentSearches = useMemo(
     () => recentEntries.map((entry) => entry.query),
     [recentEntries]
@@ -672,11 +689,9 @@ export function useSearch(extension, activeTimeFilter = null) {
     recentEntries,
     recentSearches,
     runSearch,
+    restoreSearchState,
     removeHistoryQuery,
     clearHistory,
-    clearResults: () => {
-      setResults([])
-      setAnswerMeta(null)
-    },
+    clearResults,
   }
 }
