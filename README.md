@@ -1,84 +1,74 @@
-# Memact
+# Memact Interface
 
-Version: `MVP v1.5`
+Version: `v0.0`
 
-Memact is the product layer on top of Captanet and Influnet.
+Interface is the product layer of Memact.
 
-It is the interface where users search their memory stream, inspect evidence, and eventually understand how digital exposure shaped their attention over time.
+It answers:
 
-## Product Stack
+`How does the user inspect the evidence behind a thought?`
 
-- `Captanet`
-  The foundation memory engine. It captures browser activity, extracts context, filters noise, builds sessions and activities, and exports structured snapshots.
-- `Influnet`
-  The deterministic influence engine. It reads Captanet snapshots and surfaces repeated transitions, trajectories, source evidence, drift, and formation signals.
-- `Memact`
-  The product shell. It turns those underlying systems into a user-facing experience with search, evidence cards, setup flows, and local web fallback support.
+Memact is being redesigned around a clearer promise:
 
-In short:
+`Citation, but for your thoughts.`
 
-- Captanet answers: `What happened?`
-- Influnet answers: `What tended to lead to what?`
-- Memact answers: `How does the user actually experience and inspect that memory?`
+The user enters a thought. Interface will query the lower engines and render a cited Thought Trace: possible origin candidates, influence patterns, active schema signals, and the evidence behind each claim.
 
-## What This Repo Is
+## Pipeline Position
 
-This repository is the Memact website and interaction layer.
+```text
+Capture -> Inference -> Schema -> Interface / Query -> Origin + Influence
+```
 
-It is intentionally separate from the new foundation repos:
+Interface is the point where the user enters a thought query. Origin and Influence become meaningful after this query exists.
 
-- Captanet repo: [https://github.com/Memact/Captanet](https://github.com/Memact/Captanet)
-- Influnet repo: [https://github.com/Memact/Influnet](https://github.com/Memact/Influnet)
+## Product Meaning
 
-This repo still contains a website-facing extension bundle for local integration and packaging, but the architectural source of truth for the memory and influence layers now lives in those dedicated repositories.
+Old Memact was mostly memory search:
 
-## What Memact Does
+```text
+Where did I see this?
+```
 
-- presents a local-first search interface over captured memory
-- shows evidence-backed result cards instead of opaque chatbot answers
-- supports local browser-extension integration on desktop
-- supports local web fallback behavior on unsupported/mobile environments
-- explains the Captanet -> Influnet story more clearly in the product shell
-- keeps the visible experience useful even when the lower layers stay deterministic and evidence-first
+New Memact is thought citation:
 
-## Current Experience
+```text
+What may have introduced this thought, and what may have shaped it over time?
+```
 
-### Home Layer
+## Engine Map
 
-- explains the product as memory infrastructure for the internet
-- introduces Captanet, Influnet, and Memact as separate layers
-- frames the demo flow so a pitch audience can understand the stack quickly
+- `Capture`
+  Records observed digital activity.
+- `Inference`
+  Turns raw activity into canonical themes.
+- `Schema`
+  Detects repeated mental-frame signals from inferred themes.
+- `Interface`
+  Accepts the user thought and renders the Thought Trace.
+- `Origin`
+  Finds high-precision source candidates that may have introduced the thought.
+- `Influence`
+  Maps repeated shaping patterns, transitions, and source trails.
 
-### Search Layer
+## Claim Rules
 
-- structured result cards
-- key points, matched passages, facts, and connected activity
-- result history and local suggestions
-- privacy and setup dialogs
+Interface must preserve the distinction between claim types:
 
-### Setup Layer
+- `observed`
+  Directly captured activity.
+- `inferred`
+  Deterministic theme/meaning derived from captured evidence.
+- `schema_signal`
+  A repeated possible mental frame, not a diagnosis.
+- `origin_candidate`
+  A possible direct source, not proof of causation.
+- `influence_pattern`
+  A repeated shaping pattern, not a claim that something created the thought.
 
-- browser-aware extension setup guidance
-- local-first messaging
-- extension-required vs web-fallback modes
+Every claim should link back to evidence.
 
-## Relationship To Captanet And Influnet
-
-Memact should consume the lower layers cleanly rather than re-owning their internals.
-
-Recommended direction:
-
-1. Captanet captures and exports a snapshot.
-2. Influnet analyzes that snapshot into transitions, trajectories, and formation signals.
-3. Memact renders those outputs in a way users can inspect, search, and trust.
-
-That dependency direction matters:
-
-- Memact can depend on Captanet and Influnet
-- Captanet must not depend on Memact
-- Influnet should analyze Captanet outputs, not website internals
-
-## Local Runbook
+## Terminal Quickstart
 
 Prerequisites:
 
@@ -91,72 +81,46 @@ Install:
 npm install
 ```
 
-Run the local website:
+Run the local interface:
 
 ```powershell
 npm run dev
 ```
 
-Build the production website:
+Build production assets:
 
 ```powershell
 npm run build
 ```
 
-Package the website-facing extension bundle:
+Preview the production build:
 
 ```powershell
-npm run package-extension
+npm run preview
 ```
 
-## Manual Extension Flow
+## Current Status
 
-1. Open `edge://extensions`, `chrome://extensions`, `brave://extensions`, `opera://extensions`, or `vivaldi://extensions`
-2. Enable Developer Mode
-3. Click `Load unpacked`
-4. Select the folder that directly contains `manifest.json`
-5. Reload the Memact website
+This repo is the current Memact product surface. It is runnable today, but the product direction is moving from memory search toward Thought Trace.
 
-## Suggested Demo Flow
+The next redesign should make the main user action:
 
-For a live demo:
+```text
+Enter a thought -> get cited origin/influence evidence
+```
 
-1. Run Captanet and let it collect real browsing activity.
-2. Export a Captanet snapshot into the shared workspace root.
-3. Run Influnet in the terminal to generate report, graph, and pitch artifacts.
-4. Use Memact to show the search and evidence layer that sits on top of that stack.
-
-That sequence makes the system feel real:
-
-- capture
-- structure
-- influence analysis
-- user-facing inspection
-
-## Repo Layout
+## Repository Layout
 
 - `src/`
-  Website UI and interaction layer.
+  Product UI and interaction layer.
 - `extension/memact/`
-  Website-facing extension bundle used for local setup and packaging in this repo.
+  Website-facing extension bundle used for local setup and packaging.
 - `public/`
-  Static website assets.
+  Static assets.
 - `assets/`
   Fonts and visual assets.
-- `memact_branding/`
-  Logos and brand files.
 - `scripts/`
   Packaging and local setup helpers.
-
-## Status
-
-This repository is `MVP v1.5`.
-
-It is product-facing, demoable, and locally runnable. The long-term system architecture now lives more cleanly across:
-
-- Memact for interface and product experience
-- Captanet for memory capture and structure
-- Influnet for deterministic influence analysis
 
 ## License
 
