@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import MathRichText from '../components/MathRichText'
 import SearchBar from '../components/SearchBar'
 import { useSearch } from '../hooks/useSearch'
-import memactLogo from '../../assets/logos/memact-text-logo-wide.png'
 
 function normalize(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
@@ -181,8 +180,15 @@ export default function Search({ extension }) {
       ) : null}
 
       <section className="search-home" aria-label="Memact thought input">
-        <h1 className="memact-logo">
-          <img src={memactLogo} alt="memact" />
+        <h1 className="memact-logo" aria-label="memact">
+          <span aria-hidden="true" className="memact-wordmark">
+            <span>m</span>
+            <span>e</span>
+            <span>m</span>
+            <span>a</span>
+            <span>c</span>
+            <span>t</span>
+          </span>
         </h1>
         <SearchBar
           value={search.query}

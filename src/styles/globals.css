@@ -157,26 +157,58 @@ button {
 
 .memact-logo {
   margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: min(620px, 78vw);
+  color: var(--white);
+  font-family: var(--brand-font);
+  font-size: clamp(58px, 11.2vw, 122px);
+  font-weight: 700;
+  line-height: 0.74;
+  text-transform: lowercase;
   opacity: 1;
   filter: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
 }
 
-.memact-logo img {
-  display: block;
-  width: 100%;
-  height: auto;
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+.memact-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  letter-spacing: 0;
+  transform: scaleX(1.1);
+  transform-origin: center;
+  white-space: nowrap;
+}
+
+.memact-wordmark span {
+  display: inline-block;
+}
+
+.memact-wordmark span:nth-child(2) {
+  margin-left: -0.055em;
+}
+
+.memact-wordmark span:nth-child(3) {
+  margin-left: -0.05em;
+}
+
+.memact-wordmark span:nth-child(4) {
+  margin-left: -0.06em;
+}
+
+.memact-wordmark span:nth-child(5) {
+  margin-left: -0.04em;
+}
+
+.memact-wordmark span:nth-child(6) {
+  margin-left: -0.035em;
 }
 
 .has-results .memact-logo {
-  width: min(300px, 52vw);
+  font-size: clamp(34px, 5.4vw, 56px);
+}
+
+.has-results .memact-wordmark {
+  transform: scaleX(1.08);
 }
 
 .search-cluster {
@@ -497,11 +529,15 @@ blockquote {
   }
 
   .memact-logo {
-    width: min(420px, 78vw);
+    font-size: clamp(52px, 16vw, 78px);
+  }
+
+  .memact-wordmark {
+    transform: scaleX(1.08);
   }
 
   .has-results .memact-logo {
-    width: min(240px, 50vw);
+    font-size: clamp(34px, 11vw, 44px);
   }
 
   .search-shell {
