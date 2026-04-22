@@ -10,7 +10,7 @@ It answers:
 
 Memact is being redesigned around a clearer promise:
 
-`Answers with citations from your own captured digital activity.`
+`Answers with citations from your own digital evidence trail.`
 
 The user enters a thought or question. Interface queries the lower engines and renders a cited answer: possible origin candidates, influence patterns, active schema signals, and the evidence behind each claim.
 
@@ -33,7 +33,7 @@ Where did I see this?
 New Memact is citation-backed answering:
 
 ```text
-What can Memact answer from my captured activity, and which sources support it?
+What can Memact answer from my evidence trail, and which sources support it?
 ```
 
 ## Engine Map
@@ -56,7 +56,7 @@ What can Memact answer from my captured activity, and which sources support it?
 Interface must preserve the distinction between claim types:
 
 - `observed`
-  Directly captured activity.
+  Directly observed evidence.
 - `inferred`
   Deterministic theme/meaning derived from captured evidence.
 - `schema_signal`

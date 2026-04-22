@@ -15,12 +15,12 @@ function openExternal(url) {
 
 function domainFromResult(result) {
   if (result?.domain) return result.domain
-  if (!result?.url) return 'captured memory'
+  if (!result?.url) return 'evidence source'
 
   try {
     return new URL(result.url).hostname.replace(/^www\./, '')
   } catch {
-    return 'captured memory'
+    return 'evidence source'
   }
 }
 
@@ -32,11 +32,11 @@ function compactText(value, maxLength = 190) {
 }
 
 function buildStatus(extension, search, submittedQuery) {
-  if (search.loading) return 'Searching captured activity...'
+  if (search.loading) return 'Finding cited evidence...'
   if (search.error) return search.error
   if (submittedQuery && search.results.length) return `${search.results.length} cited source candidates`
-  if (submittedQuery) return 'No strong captured match yet'
-  if (extension?.requiresBridge) return 'Connect Capture for real activity suggestions'
+  if (submittedQuery) return 'No strong citation match yet'
+  if (extension?.requiresBridge) return 'Connect Capture for evidence-backed suggestions'
   return 'Ready'
 }
 
@@ -48,7 +48,7 @@ function buildAnswerText(query, answerMeta, results) {
   if (answer) return answer
 
   if (!results.length) {
-    return 'Memact did not find a strong enough captured source to cite for this query yet.'
+    return 'Memact did not find strong enough evidence to cite for this thought yet.'
   }
 
   const primary = results[0]
@@ -57,10 +57,10 @@ function buildAnswerText(query, answerMeta, results) {
   const secondaryTitle = secondary?.title || domainFromResult(secondary)
 
   if (secondary) {
-    return `The strongest captured match is ${primaryTitle} [1]. A related source also appears in ${secondaryTitle} [2].`
+    return `The strongest citation candidate is ${primaryTitle} [1]. A related source also appears in ${secondaryTitle} [2].`
   }
 
-  return `The strongest captured match is ${primaryTitle} [1].`
+  return `The strongest citation candidate is ${primaryTitle} [1].`
 }
 
 function buildActivitySuggestions(search) {
@@ -69,10 +69,10 @@ function buildActivitySuggestions(search) {
 
 function buildEmptySuggestionMessage(extension) {
   if (extension?.requiresBridge) {
-    return 'No activity suggestions yet. Connect the Capture extension to generate suggestions from your browsing.'
+    return 'No thought suggestions yet. Connect Capture to generate suggestions from your evidence trail.'
   }
 
-  return 'No activity suggestions yet. Once Capture has saved activity, suggestions will appear here.'
+  return 'No thought suggestions yet. Once there is enough evidence, suggestions will appear here.'
 }
 
 function CitationCard({ result, index }) {
@@ -95,7 +95,7 @@ function CitationCard({ result, index }) {
           </button>
         ) : null}
       </div>
-      <h3>{result?.title || 'Captured activity'}</h3>
+      <h3>{result?.title || 'Evidence source'}</h3>
       <p className="citation-card__domain">{domain}</p>
       {text ? (
         <div className="citation-card__text">
@@ -139,8 +139,9 @@ export default function Search({ extension }) {
       {infoOpen ? (
         <aside className="info-popover" role="dialog" aria-label="About Memact">
           <p>
-            Memact searches captured activity and returns answers with citations. Suggestions and
-            cited results come from local activity evidence when Capture is connected.
+            Memact cites the thoughts you enter with evidence from what you have read, watched,
+            searched, and revisited. Suggestions and citations stay grounded in local evidence when
+            Capture is connected.
           </p>
         </aside>
       ) : null}
@@ -154,7 +155,7 @@ export default function Search({ extension }) {
           onChange={search.setQuery}
           onSubmit={runQuery}
           onSuggestionClick={runQuery}
-          placeholder="Search your captured activity"
+          placeholder="Enter a thought to cite"
           loading={search.loading}
           suggestions={suggestions}
           emptySuggestionMessage={emptySuggestionMessage}
@@ -182,7 +183,7 @@ export default function Search({ extension }) {
               </div>
             ) : (
               <div className="empty-citations">
-                No captured source was strong enough to cite for this query.
+                No source was strong enough to cite for this thought.
               </div>
             )}
           </section>

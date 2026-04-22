@@ -1,7 +1,7 @@
 {
   "name": "Memact",
   "short_name": "Memact",
-  "description": "Memact cites your thoughts with evidence from captured digital activity.",
+  "description": "Memact cites your thoughts with evidence from your personal digital evidence trail.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

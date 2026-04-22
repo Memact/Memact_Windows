@@ -271,9 +271,9 @@ function buildSearchDrivenSuggestions(query, answerMeta, results, limit = SUGGES
   for (const value of answerMeta?.sessionPrompts || []) {
     pushSuggestionItem(items, seen, {
       id: `session-${value}`,
-      category: 'Connected activity',
+      category: 'Connected evidence',
       title: value,
-      subtitle: primary?.graphSummary || 'Connected local activity.',
+      subtitle: primary?.graphSummary || 'Connected local evidence.',
       completion: value,
     })
   }
@@ -282,9 +282,9 @@ function buildSearchDrivenSuggestions(query, answerMeta, results, limit = SUGGES
     pushSuggestionItem(items, seen, {
       id: `domain-${primary.domain}`,
       category: 'Matched site',
-      title: `Show activity from ${primary.domain}`,
-      subtitle: primary.title || 'Related captured activity.',
-      completion: `Show activity from ${primary.domain}`,
+      title: `Show sources from ${primary.domain}`,
+      subtitle: primary.title || 'Related evidence.',
+      completion: `Show sources from ${primary.domain}`,
     })
   }
 
@@ -294,7 +294,7 @@ function buildSearchDrivenSuggestions(query, answerMeta, results, limit = SUGGES
       id: `app-${primary.application}`,
       category: 'Matched app',
       title: `What was I doing in ${app}?`,
-      subtitle: primary.domain || primary.title || 'Related captured activity.',
+      subtitle: primary.domain || primary.title || 'Related evidence.',
       completion: `What was I doing in ${app}?`,
     })
   }
@@ -304,7 +304,7 @@ function buildSearchDrivenSuggestions(query, answerMeta, results, limit = SUGGES
       id: `subject-${primary.contextSubject}`,
       category: 'Matched topic',
       title: `What did I read about "${primary.contextSubject}"?`,
-      subtitle: primary.pageTypeLabel || primary.domain || 'Related captured activity.',
+      subtitle: primary.pageTypeLabel || primary.domain || 'Related evidence.',
       completion: `What did I read about "${primary.contextSubject}"?`,
     })
   }
@@ -314,7 +314,7 @@ function buildSearchDrivenSuggestions(query, answerMeta, results, limit = SUGGES
       id: `title-${primary.title}`,
       category: 'Matched page',
       title: `Where did I see "${primary.title}"?`,
-      subtitle: primary.domain || primary.pageTypeLabel || 'Related captured activity.',
+      subtitle: primary.domain || primary.pageTypeLabel || 'Related evidence.',
       completion: `Where did I see "${primary.title}"?`,
     })
   }
