@@ -184,6 +184,7 @@ export default function Search({ extension }) {
         <h1 className="memact-logo">
           <img src={memactLogo} alt="memact" />
         </h1>
+        <p className="home-headline">Cite Your Thoughts.</p>
         <SearchBar
           value={search.query}
           onChange={search.setQuery}

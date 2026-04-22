@@ -4,6 +4,12 @@ Version: `v0.0`
 
 Interface is the user-facing Memact app.
 
+Headline:
+
+```text
+Cite Your Thoughts.
+```
+
 The product is simple:
 
 ```text

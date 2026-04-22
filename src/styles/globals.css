@@ -161,16 +161,35 @@ button {
   align-items: center;
   justify-content: center;
   width: min(380px, 64vw);
+  opacity: 1;
+  filter: none;
 }
 
 .memact-logo img {
   display: block;
   width: 100%;
   height: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.home-headline {
+  margin: -4px 0 0;
+  color: var(--white);
+  font-size: clamp(28px, 6vw, 56px);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.055em;
 }
 
 .has-results .memact-logo {
   width: min(180px, 44vw);
+}
+
+.has-results .home-headline {
+  display: none;
 }
 
 .search-cluster {
@@ -492,6 +511,11 @@ blockquote {
 
   .memact-logo {
     width: min(270px, 68vw);
+  }
+
+  .home-headline {
+    font-size: clamp(28px, 9vw, 42px);
+    max-width: 340px;
   }
 
   .has-results .memact-logo {
