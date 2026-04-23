@@ -68,7 +68,7 @@ function buildActivitySuggestions(search) {
 
 function buildEmptySuggestionMessage(extension) {
   if (extension?.requiresBridge) {
-    return 'No thought suggestions yet. Connect Capture to generate suggestions from your evidence trail.'
+    return 'No thought suggestions yet. Connect Capture to generate suggestions from your digital activity.'
   }
 
   return 'No thought suggestions yet. Once there is enough evidence, suggestions will appear here.'
@@ -249,7 +249,7 @@ export default function Search({ extension }) {
       {infoOpen ? (
         <aside className="info-popover" role="dialog" aria-label="About Memact" onClick={() => setInfoOpen(false)}>
           <p>
-            See where your thoughts may have formed or been shaped. Memact looks at sources from
+            See how your thoughts and digital activity are connected. Memact looks at sources from
             what you read, watch, search, and revisit when Capture is connected.
           </p>
         </aside>

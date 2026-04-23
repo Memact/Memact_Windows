@@ -19,6 +19,7 @@ import { auditCapturedContent } from "./clutter-audit.js";
 import { applySelectiveRetention, evaluateSelectiveMemory } from "./selective-memory.js";
 import { extractKeyphrases } from "./keywords.js";
 import { answerLocalQuery } from "./query-engine.js";
+import { LOCAL_OCR_POLICY, maybeExtractLocalOcr } from "./local-ocr.js";
 import { extractPdfTextFromUrl, looksLikePdfResource } from "./pdf-support.js";
 import { getIndexedSearchCandidates, invalidateEventSearchIndex } from "./search-index.js";
 
@@ -101,6 +102,21 @@ function normalizeRichText(value, maxLen) {
   const normalized = blocks.join("\n\n").trim();
   if (!normalized) return "";
   return maxLen && normalized.length > maxLen ? normalized.slice(0, maxLen) : normalized;
+}
+
+function appendUniqueRichText(base, addition, maxLen = FULL_TEXT_MAX_LEN) {
+  const primary = normalizeRichText(base, maxLen);
+  const secondary = normalizeRichText(addition, maxLen);
+  if (!secondary) return primary;
+  if (!primary) return secondary.slice(0, maxLen);
+
+  const primaryLower = primary.toLowerCase();
+  const secondaryLower = secondary.toLowerCase();
+  if (primaryLower.includes(secondaryLower.slice(0, Math.min(secondaryLower.length, 240)))) {
+    return primary;
+  }
+
+  return normalizeRichText(`${primary}\n\n${secondary}`, maxLen);
 }
 
 function hostnameFromUrl(url) {
@@ -701,7 +717,8 @@ async function captureActiveTabContext(tab) {
       activeTag: normalizeText(result.activeTag, 40),
       activeType: normalizeText(result.activeType, 40),
       typingActive: Boolean(result.typingActive),
-      scrollingActive: Boolean(result.scrollingActive)
+      scrollingActive: Boolean(result.scrollingActive),
+      localOcr: null
     };
 
     if (
@@ -722,6 +739,33 @@ async function captureActiveTabContext(tab) {
       } catch {
         // Fall back to the DOM capture when PDF extraction is unavailable.
       }
+    }
+
+    const localOcr = await maybeExtractLocalOcr(tab, normalizedResult).catch((error) => ({
+      used: false,
+      reason: String(error?.message || error || "local_ocr_failed"),
+      text: "",
+    }));
+    if (localOcr?.used && localOcr.text) {
+      normalizedResult.fullText = appendUniqueRichText(
+        normalizedResult.fullText,
+        localOcr.text,
+        FULL_TEXT_MAX_LEN
+      );
+      normalizedResult.snippet =
+        normalizedResult.snippet || normalizeText(localOcr.text, SNIPPET_MAX_LEN);
+      normalizedResult.localOcr = {
+        used: true,
+        method: localOcr.method || "local_ocr",
+        reason: localOcr.reason || "weak_dom_text",
+        capturedAt: localOcr.capturedAt || new Date().toISOString(),
+        charCount: normalizeRichText(localOcr.text).length,
+      };
+    } else if (localOcr?.reason) {
+      normalizedResult.localOcr = {
+        used: false,
+        reason: localOcr.reason,
+      };
     }
 
     return normalizedResult;
@@ -779,6 +823,7 @@ async function processAndStore(tabData) {
     keyphrases,
     contextProfile: initialProfile,
   });
+  contextProfile.localOcr = active.localOcr || null;
   let clutterAudit = auditCapturedContent(contextProfile, captureIntent);
   if (clutterAudit.shouldPreferStructured && contextProfile.displayFullText) {
     contextProfile = extractContextProfile({
@@ -799,6 +844,7 @@ async function processAndStore(tabData) {
         captureIntent,
       },
     });
+    contextProfile.localOcr = active.localOcr || null;
     clutterAudit = auditCapturedContent(contextProfile, captureIntent);
   }
   const localJudge = await classifyLocalPage(contextProfile, {
@@ -860,6 +906,7 @@ async function processAndStore(tabData) {
     captureIntent: contextProfile.captureIntent,
     clutterAudit: contextProfile.clutterAudit,
     localJudge: contextProfile.localJudge,
+    localOcr: contextProfile.localOcr,
     selectiveMemory: contextProfile.selectiveMemory,
   };
 
@@ -1392,6 +1439,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           eventCount,
           sessionCount,
           modelReady: Boolean(embedWorkerReady),
+          localOcr: LOCAL_OCR_POLICY,
           extensionVersion: EXTENSION_VERSION
         })
       )
@@ -1401,6 +1449,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           eventCount: 0,
           sessionCount: 0,
           modelReady: Boolean(embedWorkerReady),
+          localOcr: LOCAL_OCR_POLICY,
           error: String(error?.message || error || "status failed")
         })
       );

@@ -1,7 +1,7 @@
 {
   "name": "Memact",
   "short_name": "Memact",
-  "description": "Memact shows where your thoughts may have formed or been shaped.",
+  "description": "Memact helps you see how your thoughts and digital activity are connected.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

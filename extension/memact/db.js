@@ -118,7 +118,7 @@ export function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
 }
 
-async function getSettingValue(key) {
+export async function getSettingValue(key) {
   const db = await getDb();
   const tx = db.transaction("settings", "readonly");
   const store = tx.objectStore("settings");
@@ -128,7 +128,7 @@ async function getSettingValue(key) {
   return record ? record.value : undefined;
 }
 
-async function setSettingValue(key, value) {
+export async function setSettingValue(key, value) {
   const db = await getDb();
   const tx = db.transaction("settings", "readwrite");
   tx.objectStore("settings").put({ key, value });
@@ -255,6 +255,8 @@ export async function appendEvent(eventData) {
     keyphrases_json: normalizeString(eventData.keyphrases_json) || "[]",
     searchable_text: normalizeString(eventData.searchable_text),
     embedding_json: normalizeString(eventData.embedding_json) || "[]",
+    context_profile_json: normalizeString(eventData.context_profile_json) || "",
+    selective_memory_json: normalizeString(eventData.selective_memory_json) || "",
     source: normalizeString(eventData.source) || "extension"
   };
 

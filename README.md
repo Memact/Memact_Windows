@@ -4,19 +4,19 @@ Version: `v0.0`
 
 Interface is the user-facing Memact app.
 
-Headline:
+Tagline:
 
 ```text
-Cite Your Thoughts.
+Connect the Dots.
 ```
 
 The product is simple:
 
 ```text
-Enter a thought -> see the sources that may have formed or shaped it.
+Enter a thought -> see how it connects with what you read, watch, search, and revisit.
 ```
 
-Memact is not a generic search box. It uses the user's own evidence trail: pages, posts, videos, searches, and revisits saved by Capture.
+Memact is not a generic search box. It uses the user's own local digital activity: pages, posts, videos, searches, and revisits saved by Capture.
 
 ## How It Works
 
@@ -32,6 +32,15 @@ Capture -> Inference -> Schema -> Interface -> Influence / Origin
 - `Origin` finds possible source candidates that may have introduced it.
 
 The app should stay honest. It shows source candidates and patterns, not proof of causation.
+
+## Local OCR Policy
+
+Capture first uses normal page text, structured page regions, and PDF extraction. Local OCR is only a fallback when a page has weak extractable text.
+
+- It runs locally in the browser when the platform exposes a local text detector.
+- It does not upload screenshots or OCR text to an external service.
+- It is gated by idle state, weak-text checks, and per-URL cooldowns to reduce battery impact.
+- It stores OCR output only as part of the same local event record used by Memact search.
 
 ## Run Locally
 
