@@ -75,40 +75,19 @@ function buildEmptySuggestionMessage(extension) {
 }
 
 function BackIcon() {
-  return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M14.5 6.5 9 12l5.5 5.5" />
-      <path d="M9.5 12H20" />
-    </svg>
-  )
+  return <span className="control-icon" aria-hidden="true">‹</span>
 }
 
 function ReloadIcon() {
-  return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
-      <path d="M20 4.5v5h-5" />
-    </svg>
-  )
+  return <span className="control-icon control-icon--reload" aria-hidden="true">↻</span>
 }
 
 function HistoryIcon() {
-  return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3.8 12a8.2 8.2 0 1 0 2.4-5.8" />
-      <path d="M3.8 4.8v4.8h4.8" />
-      <path d="M12 7.8v4.7l3.2 1.9" />
-    </svg>
-  )
+  return <span className="control-icon control-icon--history" aria-hidden="true">◷</span>
 }
 
 function InfoIcon() {
-  return (
-    <svg className="control-icon control-icon--info" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 10.5v6" />
-      <path d="M12 7.2h.01" />
-    </svg>
-  )
+  return <span className="control-icon control-icon--info" aria-hidden="true">i</span>
 }
 
 function SourceCard({ result, index }) {

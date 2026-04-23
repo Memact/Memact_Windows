@@ -178,21 +178,37 @@ button {
 }
 
 .control-icon {
-  width: 23px;
-  height: 23px;
-  display: block;
+  width: 1em;
+  height: 1em;
+  display: grid;
+  place-items: center;
+  color: currentColor;
+  font-family: 'Segoe UI Symbol', 'Arial Unicode MS', var(--ui-font);
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1;
+  text-rendering: geometricPrecision;
 }
 
-.control-icon path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.control-icon--reload {
+  font-size: 25px;
+  transform: translateY(-0.5px);
 }
 
-.control-icon--info path:last-child {
-  stroke-width: 4;
+.control-icon--history {
+  font-size: 25px;
+  transform: translateY(-0.5px);
+}
+
+.control-icon--info {
+  width: 22px;
+  height: 22px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--ui-font);
+  font-size: 13px;
+  font-weight: 900;
+  font-style: normal;
 }
 
 .info-popover,
@@ -756,8 +772,18 @@ blockquote {
   }
 
   .control-icon {
-    width: 21px;
-    height: 21px;
+    font-size: 24px;
+  }
+
+  .control-icon--reload,
+  .control-icon--history {
+    font-size: 23px;
+  }
+
+  .control-icon--info {
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
   }
 
   .search-home {
