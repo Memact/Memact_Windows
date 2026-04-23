@@ -134,12 +134,15 @@ function DeleteIcon() {
 
 function TrashIcon() {
   return (
-    <svg className="control-icon control-icon--trash" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M7 8h10" />
-      <path d="M9.75 8V5.75h4.5V8" />
-      <path d="M8.35 10.25 9 19h6l.65-8.75" />
-      <path d="M11 11.75v5.25" />
-      <path d="M13 11.75v5.25" />
+    <svg className="control-icon control-icon--clear-all" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7.2 8.5h9.6" />
+      <path d="M9.7 8.5 10.15 6h3.7l.45 2.5" />
+      <path d="M8.65 10.55 9.2 18.7c.04.7.6 1.25 1.3 1.25h3c.7 0 1.26-.55 1.3-1.25l.55-8.15" />
+      <path d="M11 12.35v4.65" />
+      <path d="M13 12.35v4.65" />
+      <path d="M17.75 5.75 19.7 3.8" />
+      <path d="M19.65 8.65h2.15" />
+      <path d="M15.55 3.55V1.8" />
     </svg>
   )
 }
@@ -376,7 +379,7 @@ export default function Search({ extension }) {
                 className="history-clear-button"
                 type="button"
                 aria-label="Clear all history"
-                data-tooltip="Clear"
+                data-tooltip="Clear all"
                 onClick={() => search.clearHistory()}
               >
                 <TrashIcon />

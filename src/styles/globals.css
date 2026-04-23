@@ -285,6 +285,15 @@ button {
   stroke-width: 1.85;
 }
 
+.control-icon--clear-all {
+  width: 25px;
+  height: 25px;
+}
+
+.control-icon--clear-all path {
+  stroke-width: 1.8;
+}
+
 .info-popover,
 .history-popover {
   position: fixed;
