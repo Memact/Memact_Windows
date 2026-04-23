@@ -92,7 +92,7 @@ button {
 }
 
 .memact-page.is-home {
-  align-content: center;
+  align-content: start;
 }
 
 .memact-page.has-results {
@@ -107,8 +107,8 @@ button {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
+  gap: 9px;
+  padding: 7px;
   border: 1px solid var(--white-16);
   border-radius: 999px;
   background: var(--white-06);
@@ -117,15 +117,15 @@ button {
 }
 
 .result-controls button {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--white);
-  font-size: 18px;
+  font-size: 0;
   font-weight: 900;
   line-height: 1;
 }
@@ -148,8 +148,8 @@ button {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
+  gap: 9px;
+  padding: 7px;
   border: 1px solid var(--white-16);
   border-radius: 999px;
   background: var(--white-06);
@@ -158,15 +158,15 @@ button {
 }
 
 .top-actions button {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--white);
-  font-size: 18px;
+  font-size: 0;
   font-weight: 900;
   line-height: 1;
 }
@@ -175,6 +175,24 @@ button {
 .top-actions button:focus-visible {
   outline: none;
   background: var(--white-10);
+}
+
+.control-icon {
+  width: 23px;
+  height: 23px;
+  display: block;
+}
+
+.control-icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.control-icon--info path:last-child {
+  stroke-width: 4;
 }
 
 .info-popover,
@@ -248,8 +266,12 @@ button {
   width: min(720px, 100%);
   display: grid;
   justify-items: center;
-  gap: clamp(18px, 3vw, 28px);
+  gap: clamp(14px, 2.3vw, 22px);
   text-align: center;
+}
+
+.is-home .search-home {
+  margin-top: clamp(0px, 1.4vh, 18px);
 }
 
 .has-results .search-home {
@@ -269,6 +291,10 @@ button {
   filter: none;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
+}
+
+.is-home .memact-logo {
+  font-size: clamp(30px, 4.6vw, 44px);
 }
 
 .memact-wordmark {
@@ -311,6 +337,32 @@ button {
 
 .has-results .memact-wordmark {
   transform: none;
+}
+
+.brand-divider {
+  width: min(148px, 36vw);
+  height: 1px;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      var(--white-24) 20%,
+      var(--white-62) 50%,
+      var(--white-24) 80%,
+      transparent
+    );
+}
+
+.thought-prompt {
+  max-width: min(680px, 100%);
+  margin: clamp(10px, 2.5vh, 22px) 0 clamp(4px, 1vh, 8px);
+  color: var(--white);
+  font-family: var(--ui-font);
+  font-size: clamp(30px, 6vw, 58px);
+  font-weight: 900;
+  line-height: 1.04;
+  letter-spacing: -0.055em;
 }
 
 .search-cluster {
@@ -377,8 +429,8 @@ button {
 }
 
 .search-button img {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: block;
 }
 
@@ -623,7 +675,7 @@ blockquote {
   }
 
   .memact-page.is-home {
-    align-content: center;
+    align-content: start;
   }
 
   .memact-page.has-results {
@@ -632,6 +684,10 @@ blockquote {
 
   .memact-logo {
     font-size: clamp(40px, 12.5vw, 60px);
+  }
+
+  .is-home .memact-logo {
+    font-size: clamp(28px, 9vw, 36px);
   }
 
   .memact-wordmark {
@@ -690,17 +746,27 @@ blockquote {
   .top-actions,
   .result-controls {
     gap: 6px;
-    padding: 5px;
+    padding: 6px;
   }
 
   .top-actions button,
   .result-controls button {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .control-icon {
+    width: 21px;
+    height: 21px;
   }
 
   .search-home {
-    gap: 16px;
+    gap: 14px;
+  }
+
+  .thought-prompt {
+    margin-top: 18px;
+    font-size: clamp(28px, 10vw, 42px);
   }
 
   .search-shell {

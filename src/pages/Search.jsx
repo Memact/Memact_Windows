@@ -74,6 +74,43 @@ function buildEmptySuggestionMessage(extension) {
   return 'No thought suggestions yet. Once there is enough evidence, suggestions will appear here.'
 }
 
+function BackIcon() {
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14.5 6.5 9 12l5.5 5.5" />
+      <path d="M9.5 12H20" />
+    </svg>
+  )
+}
+
+function ReloadIcon() {
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+      <path d="M20 4.5v5h-5" />
+    </svg>
+  )
+}
+
+function HistoryIcon() {
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3.8 12a8.2 8.2 0 1 0 2.4-5.8" />
+      <path d="M3.8 4.8v4.8h4.8" />
+      <path d="M12 7.8v4.7l3.2 1.9" />
+    </svg>
+  )
+}
+
+function InfoIcon() {
+  return (
+    <svg className="control-icon control-icon--info" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 10.5v6" />
+      <path d="M12 7.2h.01" />
+    </svg>
+  )
+}
+
 function SourceCard({ result, index }) {
   const domain = domainFromResult(result)
   const text = compactText(
@@ -203,19 +240,23 @@ export default function Search({ extension }) {
       {hasSubmitted ? (
         <nav className="result-controls" aria-label="Result navigation">
           <button
+            className="nav-button nav-button--back"
             type="button"
             aria-label="Previous thought"
             disabled={!canGoBack || search.loading}
             onClick={goBack}
           >
+            <BackIcon />
             ←
           </button>
           <button
+            className="nav-button nav-button--reload"
             type="button"
             aria-label="Reload sources"
             disabled={search.loading}
             onClick={reloadResult}
           >
+            <ReloadIcon />
             ↻
           </button>
         </nav>
@@ -223,6 +264,7 @@ export default function Search({ extension }) {
 
       <div ref={topActionsRef} className="top-actions" aria-label="Memact actions">
         <button
+          className="top-action-button top-action-button--history"
           type="button"
           aria-label="Thought history"
           aria-expanded={historyOpen}
@@ -231,9 +273,11 @@ export default function Search({ extension }) {
             setInfoOpen(false)
           }}
         >
+          <HistoryIcon />
           ↺
         </button>
         <button
+          className="top-action-button top-action-button--info"
           type="button"
           aria-label="About Memact"
           aria-expanded={infoOpen}
@@ -242,6 +286,7 @@ export default function Search({ extension }) {
             setHistoryOpen(false)
           }}
         >
+          <InfoIcon />
           i
         </button>
       </div>
@@ -287,12 +332,16 @@ export default function Search({ extension }) {
             <span>t</span>
           </span>
         </h1>
+        <div className="brand-divider" aria-hidden="true" />
+        {!hasSubmitted ? (
+          <p className="thought-prompt">What have you been thinking?</p>
+        ) : null}
         <SearchBar
           value={search.query}
           onChange={search.setQuery}
           onSubmit={runQuery}
           onSuggestionClick={runQuery}
-          placeholder="Enter a thought"
+          placeholder="Type Here"
           loading={search.loading}
           suggestions={suggestions}
           emptySuggestionMessage={emptySuggestionMessage}
