@@ -75,19 +75,39 @@ function buildEmptySuggestionMessage(extension) {
 }
 
 function BackIcon() {
-  return <span className="control-icon" aria-hidden="true">‹</span>
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M15 6 9 12l6 6" />
+    </svg>
+  )
 }
 
-function ReloadIcon() {
-  return <span className="control-icon control-icon--reload" aria-hidden="true">↻</span>
+function ForwardIcon() {
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  )
 }
 
 function HistoryIcon() {
-  return <span className="control-icon control-icon--history" aria-hidden="true">◷</span>
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+      <path d="M4.5 5.2v4.6h4.6" />
+      <path d="M12 8.2V12l2.7 1.6" />
+    </svg>
+  )
 }
 
 function InfoIcon() {
-  return <span className="control-icon control-icon--info" aria-hidden="true">i</span>
+  return (
+    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.5" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </svg>
+  )
 }
 
 function SourceCard({ result, index }) {
@@ -136,6 +156,7 @@ export default function Search({ extension }) {
   const answerText = buildAnswerText(submittedQuery, search.answerMeta, search.results)
   const hasSubmitted = Boolean(submittedQuery)
   const canGoBack = navigation.index > 0
+  const canGoForward = navigation.index >= 0 && navigation.index < navigation.entries.length - 1
   const historyItems = search.recentSearches.filter(Boolean).slice(0, 8)
 
   const runQuery = async (value = search.query, { record = true } = {}) => {
@@ -164,6 +185,14 @@ export default function Search({ extension }) {
   }
 
   const goBack = async () => {
+    if (!canGoBack) {
+      setSubmittedQuery('')
+      search.setQuery('')
+      search.clearResults()
+      setNavigation((current) => ({ ...current, index: -1 }))
+      return
+    }
+
     const nextIndex = navigation.index - 1
     const query = navigation.entries[nextIndex]
     if (!query) return
@@ -171,9 +200,13 @@ export default function Search({ extension }) {
     await runQuery(query, { record: false })
   }
 
-  const reloadResult = async () => {
-    if (!submittedQuery) return
-    await runQuery(submittedQuery, { record: false })
+  const goForward = async () => {
+    if (!canGoForward) return
+    const nextIndex = navigation.index + 1
+    const query = navigation.entries[nextIndex]
+    if (!query) return
+    setNavigation((current) => ({ ...current, index: nextIndex }))
+    await runQuery(query, { record: false })
   }
 
   useEffect(() => {
@@ -221,22 +254,19 @@ export default function Search({ extension }) {
           <button
             className="nav-button nav-button--back"
             type="button"
-            aria-label="Previous thought"
-            disabled={!canGoBack || search.loading}
+            aria-label={canGoBack ? 'Previous thought' : 'Back to home'}
             onClick={goBack}
           >
             <BackIcon />
-            ←
           </button>
           <button
-            className="nav-button nav-button--reload"
+            className="nav-button nav-button--forward"
             type="button"
-            aria-label="Reload sources"
-            disabled={search.loading}
-            onClick={reloadResult}
+            aria-label="Next thought"
+            disabled={!canGoForward || search.loading}
+            onClick={goForward}
           >
-            <ReloadIcon />
-            ↻
+            <ForwardIcon />
           </button>
         </nav>
       ) : null}
@@ -253,7 +283,6 @@ export default function Search({ extension }) {
           }}
         >
           <HistoryIcon />
-          ↺
         </button>
         <button
           className="top-action-button top-action-button--info"
@@ -266,7 +295,6 @@ export default function Search({ extension }) {
           }}
         >
           <InfoIcon />
-          i
         </button>
       </div>
 
