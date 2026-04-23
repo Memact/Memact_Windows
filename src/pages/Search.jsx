@@ -32,14 +32,14 @@ function compactText(value, maxLength = 190) {
 
 function buildStatus(extension, search, submittedQuery, voiceState) {
   if (voiceState === 'listening' || voiceState === 'processing') return 'Listening...'
-  if (voiceState === 'done') return 'Done'
-  if (voiceState === 'unsupported') return 'Voice input unavailable'
+  if (voiceState === 'done') return 'Done.'
+  if (voiceState === 'unsupported') return 'Voice input unavailable.'
   if (search.loading) return 'Finding sources...'
   if (search.error) return search.error
   if (submittedQuery && search.results.length) return `${search.results.length} source candidates`
-  if (submittedQuery) return 'No strong source match yet'
-  if (extension?.requiresBridge) return 'Connect Capture for thought suggestions'
-  return 'Ready'
+  if (submittedQuery) return 'No strong source match yet.'
+  if (extension?.requiresBridge) return 'Connect Capture to form suggestions.'
+  return 'Ready.'
 }
 
 function buildAnswerText(query, answerMeta, results) {
@@ -50,7 +50,7 @@ function buildAnswerText(query, answerMeta, results) {
   if (answer) return answer
 
   if (!results.length) {
-    return 'Memact did not find strong enough sources for this thought yet.'
+    return 'Memact did not find strong enough sources yet.'
   }
 
   const primary = results[0]
@@ -71,10 +71,10 @@ function buildActivitySuggestions(search) {
 
 function buildEmptySuggestionMessage(extension) {
   if (extension?.requiresBridge) {
-    return 'No thought suggestions yet. Connect Capture to generate suggestions from your digital activity.'
+    return 'No suggestions formed yet. Connect Capture to form them from your activity.'
   }
 
-  return 'No thought suggestions yet. Once there is enough evidence, suggestions will appear here.'
+  return 'No suggestions formed yet. Once there is enough evidence, they will appear here.'
 }
 
 function BackIcon() {
@@ -309,7 +309,7 @@ export default function Search({ extension }) {
           <button
             className="nav-button nav-button--forward"
             type="button"
-            aria-label="Next thought"
+            aria-label="Forward"
             data-tooltip="Forward"
             aria-disabled={!canGoForward || search.loading}
             onClick={goForward}
@@ -333,7 +333,7 @@ export default function Search({ extension }) {
         <button
           className="top-action-button top-action-button--history"
           type="button"
-          aria-label="Thought history"
+          aria-label="History"
           data-tooltip="History"
           aria-expanded={historyOpen}
           onClick={() => {
@@ -368,7 +368,7 @@ export default function Search({ extension }) {
       ) : null}
 
       {historyOpen ? (
-        <aside ref={historyPopoverRef} className="history-popover" role="dialog" aria-label="Thought history">
+        <aside ref={historyPopoverRef} className="history-popover" role="dialog" aria-label="History">
           <div className="history-popover__top">
             <p className="history-title">History</p>
             {historyItems.length ? (
@@ -407,12 +407,12 @@ export default function Search({ extension }) {
               ))}
             </div>
           ) : (
-            <p className="history-empty">No thoughts yet.</p>
+            <p className="history-empty">No history yet.</p>
           )}
         </aside>
       ) : null}
 
-      <section className="search-home" aria-label="Memact thought input">
+      <section className="search-home" aria-label="Memact input">
         <h1 className="memact-logo" aria-label="memact">
           <span aria-hidden="true" className="memact-wordmark">
             <span>m</span>
@@ -461,7 +461,7 @@ export default function Search({ extension }) {
               </div>
             ) : (
               <div className="empty-sources">
-                No source was strong enough for this thought.
+                No source was strong enough yet.
               </div>
             )}
           </section>

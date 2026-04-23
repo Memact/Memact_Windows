@@ -205,10 +205,8 @@ export default function SearchBar({
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
       setVoiceState('unsupported')
-      setVoiceMessage('Voice input is not available in this browser.')
       window.setTimeout(() => {
         setVoiceState('idle')
-        setVoiceMessage('')
       }, 3200)
       return
     }
@@ -394,13 +392,13 @@ export default function SearchBar({
           spellCheck={false}
           inputMode="search"
           enterKeyHint="search"
-          aria-label="Thought input"
+          aria-label="Input"
         />
 
         <button
           className={`search-button ${hasActiveSearchText ? 'is-enter' : 'is-mic'} ${voiceActive ? 'is-listening' : ''}`}
           type={hasActiveSearchText ? 'submit' : 'button'}
-          aria-label={hasActiveSearchText ? 'Submit thought' : 'Speak thought'}
+          aria-label={hasActiveSearchText ? 'Submit' : 'Speak'}
           data-tooltip={hasActiveSearchText ? 'Enter' : 'Speak'}
           disabled={loading}
           onMouseDown={(event) => event.preventDefault()}
