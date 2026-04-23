@@ -76,43 +76,44 @@ function buildEmptySuggestionMessage(extension) {
 
 function BackIcon() {
   return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M15 6 9 12l6 6" />
+    <svg className="control-icon control-icon--arrow" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 12H6.5" />
+      <path d="M11.5 7 6.5 12l5 5" />
     </svg>
   )
 }
 
 function ForwardIcon() {
   return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m9 6 6 6-6 6" />
+    <svg className="control-icon control-icon--arrow" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 12h11.5" />
+      <path d="m12.5 7 5 5-5 5" />
     </svg>
   )
 }
 
 function ReloadIcon() {
   return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M18.2 7.4A7.2 7.2 0 1 0 19 12" />
-      <path d="M18.2 4.5v4.3h-4.3" />
+    <svg className="control-icon control-icon--reload" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 7.2A7.4 7.4 0 1 0 19.3 12" />
+      <path d="M18.1 4.8v4.4h-4.4" />
     </svg>
   )
 }
 
 function HistoryIcon() {
   return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
-      <path d="M4.5 5.2v4.6h4.6" />
-      <path d="M12 8.2V12l2.7 1.6" />
+    <svg className="control-icon control-icon--round" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.4" />
+      <path d="M12 8.2V12l3 1.8" />
     </svg>
   )
 }
 
 function InfoIcon() {
   return (
-    <svg className="control-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="7.5" />
+    <svg className="control-icon control-icon--round" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.4" />
       <path d="M12 11v5" />
       <path d="M12 8h.01" />
     </svg>

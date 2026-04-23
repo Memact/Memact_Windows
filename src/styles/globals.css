@@ -107,7 +107,7 @@ button {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px;
   border: 1px solid var(--white-16);
   border-radius: 999px;
@@ -117,8 +117,8 @@ button {
 }
 
 .result-controls button {
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border: 0;
@@ -148,7 +148,7 @@ button {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px;
   border: 1px solid var(--white-16);
   border-radius: 999px;
@@ -158,8 +158,8 @@ button {
 }
 
 .top-actions button {
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border: 0;
@@ -178,8 +178,8 @@ button {
 }
 
 .control-icon {
-  width: 26px;
-  height: 26px;
+  width: 27px;
+  height: 27px;
   display: block;
   overflow: visible;
 }
@@ -188,10 +188,25 @@ button {
 .control-icon circle {
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.25;
+  stroke-width: 2.35;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+}
+
+.control-icon--arrow {
+  width: 28px;
+  height: 28px;
+}
+
+.control-icon--reload {
+  width: 27px;
+  height: 27px;
+}
+
+.control-icon--round {
+  width: 27px;
+  height: 27px;
 }
 
 .control-icon--small {
@@ -783,19 +798,24 @@ blockquote {
 
   .top-actions,
   .result-controls {
-    gap: 7px;
+    gap: 6px;
     padding: 7px;
   }
 
   .top-actions button,
   .result-controls button {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
   }
 
   .control-icon {
-    width: 23px;
-    height: 23px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .control-icon--arrow {
+    width: 25px;
+    height: 25px;
   }
 
   .control-icon--small {
