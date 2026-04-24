@@ -116,15 +116,15 @@ function buildActivitySuggestions(search) {
 
 function buildEmptySuggestionMessage(extension, importDecision) {
   if (extension?.bootstrap?.status === 'running') {
-    return 'Memact is forming suggestions from recent browser activity.'
+    return 'Memact is getting your first suggestions ready.'
   }
 
   if (extension?.requiresBridge) {
-    return 'No suggestions formed yet. Connect Capture to form them from your activity.'
+    return 'No suggestions formed yet. Connect Capture first.'
   }
 
   if (importDecision === 'denied') {
-    return 'No suggestions formed yet. Memact is waiting for future captured activity.'
+    return 'No suggestions formed yet. Memact is waiting for new activity.'
   }
 
   return 'No suggestions formed yet. Once there is enough evidence, they will appear here.'
@@ -523,13 +523,13 @@ export default function Search({ extension }) {
       {shouldShowInstallModal ? (
         <OnboardingModal
           title="Install Capture first."
-          body="Memact needs the Capture extension to connect thoughts with real browsing activity. Download the zip, extract it, and load the folder as an unpacked extension."
+          body="Memact needs Capture to see your activity. Download the zip, unzip it, and load the folder in your browser."
           steps={[
             'Download the extension zip.',
-            'Extract the zip into a folder on your machine.',
+            'Unzip it into a folder on your machine.',
             'Open chrome://extensions or edge://extensions.',
             'Turn on Developer Mode.',
-            'Click Load unpacked and choose the extracted folder.',
+            'Click Load unpacked and pick that folder.',
           ]}
           primaryAction={
             <a
@@ -558,11 +558,11 @@ export default function Search({ extension }) {
       {shouldShowImportModal ? (
         <OnboardingModal
           title="Import recent activity?"
-          body="Memact can inspect a limited local slice of recent browser activity to form first suggestions and early patterns. If you skip this, only future captured activity will appear."
+          body="Memact can look at some recent activity on this device so it does not start empty. If you skip this, it will only use new activity from now on."
           steps={[
-            'Import runs locally on this device.',
-            'Memact checks what to include and what to skip before saving.',
-            'If you skip it now, only future activity will be used.',
+            'This stays on this device.',
+            'Memact checks what to keep before it saves anything.',
+            'If you skip this now, Memact will wait for new activity.',
           ]}
           primaryAction={
             <button
@@ -593,9 +593,9 @@ export default function Search({ extension }) {
       {shouldShowProcessingModal ? (
         <OnboardingModal
           title="Processing..."
-          body="Memact is screening recent activity, deciding what belongs in memory, and forming the first useful suggestions."
+          body="Memact is going through recent activity and getting your first suggestions ready."
           progress={Number(bootstrapState.progress_percent || 0)}
-          note={bootstrapState.note || 'Checking what to include and what to skip.'}
+          note={bootstrapState.note || 'Checking what to keep.'}
           secondaryAction={
             <button
               className="memact-modal__button memact-modal__button--muted"
@@ -691,10 +691,10 @@ export default function Search({ extension }) {
       {infoOpen ? (
         <aside className="info-popover" role="dialog" aria-label="About Memact" onClick={() => setInfoOpen(false)}>
           <p>
-            Memact helps you make better decisions by showing the sources around a thought,
-            spotting one-sided views, and noticing emotions shaped by what you consume.
+            Memact helps you see where your thoughts may be coming from.
+            It looks at what you read, watch, search, and revisit, then shows links that may have shaped a thought.
             {extension?.bootstrap?.imported_count
-              ? ` It has already seeded ${extension.bootstrap.imported_count} early activity sources from recent browser history on this device.`
+              ? ` It has already added ${extension.bootstrap.imported_count} early activity items from this device.`
               : ''}
           </p>
         </aside>
@@ -705,7 +705,7 @@ export default function Search({ extension }) {
           <div className="settings-popover__section">
             <p className="settings-title">Settings</p>
             <p className="settings-copy">
-              Keep Capture connected so Memact can connect thoughts with what you read, watch, search, and revisit.
+              Keep Capture connected so Memact can use your activity here.
             </p>
             <a
               className="settings-button"
@@ -720,7 +720,7 @@ export default function Search({ extension }) {
             <div className="settings-popover__section">
               <p className="settings-label">Capture status</p>
               <p className="settings-helper">
-                {extension?.bridgeDetected ? 'Capture is connected.' : 'Waiting for Capture to connect.'}
+                {extension?.bridgeDetected ? 'Capture is connected.' : 'Waiting for Capture.'}
               </p>
             </div>
           ) : null}
@@ -738,7 +738,7 @@ export default function Search({ extension }) {
                 <span>Allow local import</span>
               </label>
               <p className="settings-helper">
-                Use a limited recent local activity slice to form first suggestions before future capture builds up.
+                Let Memact use some recent activity on this device to get started faster.
               </p>
             </div>
           ) : null}
@@ -747,7 +747,7 @@ export default function Search({ extension }) {
             <div className="settings-popover__section">
               <p className="settings-label">Local import</p>
               <p className="settings-helper">
-                Syncing local activity now. Memact is deciding what to include and what to skip.
+                Memact is bringing in recent activity now.
               </p>
             </div>
           ) : null}

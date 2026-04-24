@@ -2,71 +2,61 @@
 
 Version: `v0.0`
 
-Website is the user-facing Memact product surface.
+Memact helps you see where your thoughts may be coming from.
 
-Tagline:
+You type a thought.
+Memact looks at what you read, watch, search, and revisit.
+Then it shows links that may have shaped that thought.
 
-```text
-Connect the Dots.
-```
+Why this matters:
 
-The product is simple:
+- it can help you catch one-sided thinking
+- it can help you make better decisions
+- it can help you understand why some thoughts or feelings keep showing up
+- it can help you explain your ideas more clearly
 
-```text
-Enter a thought -> see how it connects with what you read, watch, search, and revisit.
-```
-
-Memact is for understanding where thoughts are being formed, shaped, reinforced, or narrowed by digital activity.
-
-The point is practical, not abstract. Memact helps with:
-
-- spotting one-sided thinking and hidden bias before acting on it
-- making better decisions with source-backed context
-- understanding feelings around thoughts that may have been externally influenced
-- supporting mental health by surfacing repeated shaping patterns instead of leaving them invisible
-- communicating ideas more clearly because the user can inspect where those ideas came from
-
-## How It Works
+## How Memact Works
 
 ```text
-Capture -> Inference -> Schema -> Interface -> Influence / Origin
+Capture -> Inference -> Schema -> Website -> Influence / Origin
 ```
 
-- `Capture` saves useful digital activity.
-- `Inference` turns that activity into cleaner meaning.
-- `Schema` notices repeated themes.
-- `Interface` lets the user enter a thought.
-- `Influence` shows what may have shaped the thought over time.
-- `Origin` finds possible source candidates that may have introduced it.
+- `Capture`
+  Saves useful activity from your device.
+- `Inference`
+  Finds the main meaning in that activity.
+- `Schema`
+  Notices patterns that keep repeating.
+- `Website`
+  Lets you type a thought and see the result.
+- `Influence`
+  Shows what may have shaped the thought over time.
+- `Origin`
+  Shows what may have first introduced the thought.
 
-Memact stays grounded in captured evidence. It shows source-backed patterns, not certainty theatre.
+## First-Time Setup
 
-## First-Use Bootstrap
+Memact does not interrupt the user right away.
+Setup starts when the user first tries to use search.
 
-When Capture connects for the first time, Memact can ask permission to inspect a limited slice of recent browser activity so the system does not start empty.
+If Capture is not installed yet:
 
-- `Capture` imports recent browser history locally on-device.
-- `Inference` turns that early activity into deterministic themes.
-- `Schema` marks pattern strength as `emerging`, `reinforced`, or `stable`.
-- `Influence` checks for repeated directional movement in those early activities.
-- `Origin` is then used per thought query to find direct source candidates.
+1. Download the extension zip.
+2. Unzip it into a folder.
+3. Open `chrome://extensions` or `edge://extensions`.
+4. Turn on Developer Mode.
+5. Click `Load unpacked`.
+6. Pick the unzipped folder.
 
-If the user declines the import prompt, Memact simply starts from future captured activity.
+After that, Memact can ask to import some recent activity from this device so it does not start empty.
 
-Early patterns are provisional. Memact upgrades them as richer live capture replaces bootstrap-only evidence.
-
-## Local OCR Policy
-
-Capture first uses normal page text, structured page regions, and PDF extraction. Local OCR is only a fallback when a page has weak extractable text.
-
-- It runs locally in the browser when the platform exposes a local text detector.
-- It does not upload screenshots or OCR text to an external service.
-- It is gated by idle state, weak-text checks, and per-URL cooldowns to reduce battery impact.
-- It stores OCR output only as part of the same local event record used by Memact search.
+- If the user allows it, Memact starts building first suggestions.
+- If the user skips it, Memact waits for new activity from then on.
+- If the user changes their mind later, the `Settings` button lets them turn local import on.
 
 ## Run Locally
 
-Prerequisites:
+You need:
 
 - Node.js `20+`
 - npm `10+`
@@ -95,71 +85,35 @@ Preview:
 npm run preview
 ```
 
-## Install Capture Extension
+## Extension Zip
 
-If the website opens without Capture, the setup popup appears when the user first tries to interact with search, not immediately on page load.
-
-The same extension zip used by that popup is available here:
+The website serves the same extension zip used in setup here:
 
 ```text
 public/memact-extension.zip
 ```
 
-Load it like this:
+## Search Setup
 
-1. Download `memact-extension.zip`.
-2. Extract the zip into a folder.
-3. Open `chrome://extensions` or `edge://extensions`.
-4. Turn on Developer Mode.
-5. Click `Load unpacked`.
-6. Select the extracted folder.
+The website already includes the main Google search basics:
 
-After Capture is installed, Memact asks whether it should import a limited local slice of recent browser activity.
-
-- If allowed, Memact starts local screening and sync right away.
-- If declined, only future activity is used.
-- If the user later wants to enable that import, the `Settings` button in the top-right exposes the local import option again.
-
-## Search And Indexing
-
-The website now ships with the usual Google-facing essentials already in place:
-
-- canonical home URL
+- canonical URL
 - `robots.txt`
 - `sitemap.xml`
-- index/follow directives
-- JSON-LD for `Organization`, `WebSite`, `WebPage`, and `WebApplication`
-- Open Graph and Twitter card metadata
-- site manifest and favicon assets
-- homepage copy aligned with Memact's actual product purpose
+- search metadata
+- structured data
+- favicon and web manifest
 
-One step still requires the real site owner account: actual Google Search Console property verification. That token or verification HTML file must come from Search Console itself.
+One thing still has to be done by the real site owner:
+Google Search Console verification.
 
 After verification, the normal next steps are:
 
-1. Submit `https://www.memact.com/sitemap.xml` in Search Console.
-2. Inspect `https://www.memact.com/` in URL Inspection.
-3. Request indexing for the homepage if needed.
-4. Re-run inspection after major homepage updates.
+1. Submit `https://www.memact.com/sitemap.xml`
+2. Inspect `https://www.memact.com/`
+3. Request indexing if needed
 
-This follows Google Search Central guidance around sitemaps, canonical URLs, robots directives, structured data, and URL inspection.
-
-## Memact Stack At A Glance
-
-- `Capture`
-  Browser extension and evidence layer. Captures useful local digital activity.
-- `Inference`
-  Converts raw captured activity into deterministic meaning and themes.
-- `Schema`
-  Detects repeated mental-pattern signals such as emerging or reinforced schemas.
-- `Origin`
-  Finds possible direct source candidates that may have introduced a thought.
-- `Influence`
-  Finds repeated directional patterns showing what may have shaped a thought over time.
-- `Website`
-  The product surface where users type thoughts, inspect sources, install Capture, and review suggestions.
-
-Repositories:
+## Repositories
 
 - [Capture](https://github.com/Memact/Capture)
 - [Inference](https://github.com/Memact/Inference)
@@ -167,19 +121,6 @@ Repositories:
 - [Origin](https://github.com/Memact/Origin)
 - [Influence](https://github.com/Memact/Influence)
 - [Website](https://github.com/Memact/Website)
-
-## Repository Layout
-
-- `src/`
-  Product UI and interaction layer.
-- `extension/memact/`
-  Browser extension bundle used for local setup and packaging.
-- `public/`
-  Static assets.
-- `assets/`
-  Fonts and visual assets.
-- `scripts/`
-  Packaging and setup helpers.
 
 ## License
 
