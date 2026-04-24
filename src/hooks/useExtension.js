@@ -10,6 +10,8 @@ import {
   webMemorySuggestions,
 } from '../lib/webMemoryStore'
 
+const BOOTSTRAP_POLL_MS = 650
+
 function supportsWindowMessaging() {
   return typeof window !== 'undefined' && typeof window.postMessage === 'function'
 }
@@ -32,6 +34,10 @@ function isResponseType(type) {
   )
 }
 
+function hasKnowledgeSnapshot(snapshot) {
+  return Boolean(snapshot?.events?.length || snapshot?.activities?.length)
+}
+
 export function useExtension() {
   const environment = useMemo(() => detectClientEnvironment(), [])
   const supportsBridge = environment.extensionCapable
@@ -43,6 +49,7 @@ export function useExtension() {
   const [knowledge, setKnowledge] = useState(null)
   const [bootstrap, setBootstrap] = useState(null)
   const pending = useRef(new Map())
+  const knowledgeRefreshInFlight = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -240,7 +247,7 @@ export function useExtension() {
     if (useWebFallback && !bridgeDetected) {
       return Promise.resolve({ ok: false, skipped: true })
     }
-    return sendToExtension('CAPTURE_BOOTSTRAP_HISTORY', options, 20000)
+    return sendToExtension('CAPTURE_BOOTSTRAP_HISTORY', options, 10000)
   }, [bridgeDetected, sendToExtension, useWebFallback])
 
   const clearAllData = useCallback(async () => {
@@ -254,70 +261,100 @@ export function useExtension() {
     return sendToExtension('MEMACT_CLEAR_ALL_DATA', {})
   }, [bridgeDetected, sendToExtension, useWebFallback])
 
+  const refreshKnowledge = useCallback(async () => {
+    if (useWebFallback && !bridgeDetected) {
+      return null
+    }
+
+    if (knowledgeRefreshInFlight.current) {
+      return knowledgeRefreshInFlight.current
+    }
+
+    const task = (async () => {
+      const [statusResult, bootstrapResult, snapshotResponse] = await Promise.all([
+        getStatus().catch(() => null),
+        getBootstrapStatus().catch(() => null),
+        getSnapshot(3000).catch(() => null),
+      ])
+
+      if (statusResult?.bootstrap) {
+        setBootstrap(statusResult.bootstrap)
+      } else if (bootstrapResult?.bootstrap || bootstrapResult) {
+        setBootstrap(bootstrapResult?.bootstrap || bootstrapResult)
+      }
+
+      const snapshot = snapshotResponse?.snapshot || snapshotResponse || null
+      if (hasKnowledgeSnapshot(snapshot)) {
+        const nextKnowledge = buildMemactKnowledge(snapshot)
+        setKnowledge(nextKnowledge)
+        return nextKnowledge
+      }
+
+      setKnowledge(null)
+      return null
+    })()
+
+    knowledgeRefreshInFlight.current = task
+
+    try {
+      return await task
+    } finally {
+      knowledgeRefreshInFlight.current = null
+    }
+  }, [bridgeDetected, getBootstrapStatus, getSnapshot, getStatus, useWebFallback])
+
   useEffect(() => {
     if (!bridgeDetected) {
       return undefined
     }
 
+    refreshKnowledge().catch(() => {})
+    return undefined
+  }, [bridgeDetected, refreshKnowledge])
+
+  useEffect(() => {
+    if (!bridgeDetected || bootstrap?.status !== 'running') {
+      return undefined
+    }
+
     let cancelled = false
 
-    const hydrateKnowledge = async () => {
-      const [statusResult, bootstrapResult] = await Promise.all([
-        getStatus().catch(() => null),
-        getBootstrapStatus().catch(() => null),
-      ])
-
-      if (cancelled) {
-        return
-      }
-
-      const bootstrapState =
-        bootstrapResult?.bootstrap || bootstrapResult || statusResult?.bootstrap || null
-      if (bootstrapState) {
-        setBootstrap(bootstrapState)
-      }
-
-      const eventCount = Number(statusResult?.eventCount || 0)
-      const shouldBootstrap =
-        eventCount < 40 &&
-        bootstrapState?.status !== 'running' &&
-        bootstrapState?.status !== 'complete'
-
-      if (shouldBootstrap) {
-        const bootstrapResponse = await bootstrapHistory({
-          days: 21,
-          limit: 320,
-        }).catch(() => null)
-
+    const poll = async () => {
+      while (!cancelled) {
+        const stateResult = await getBootstrapStatus().catch(() => null)
         if (cancelled) {
           return
         }
-
-        const nextBootstrap =
-          bootstrapResponse?.bootstrap || bootstrapResponse || bootstrapState
-        if (nextBootstrap) {
-          setBootstrap(nextBootstrap)
+        const state = stateResult?.bootstrap || stateResult || null
+        if (state) {
+          setBootstrap(state)
         }
-      }
-
-      const snapshotResponse = await getSnapshot(3000).catch(() => null)
-      if (cancelled) {
-        return
-      }
-      const snapshot = snapshotResponse?.snapshot || snapshotResponse || null
-      if (snapshot?.events?.length || snapshot?.activities?.length) {
-        setKnowledge(buildMemactKnowledge(snapshot))
-      } else {
-        setKnowledge(null)
+        if (state?.status === 'complete') {
+          await refreshKnowledge().catch(() => {})
+          return
+        }
+        if (state?.status === 'error' || state?.status === 'idle') {
+          return
+        }
+        await sleep(BOOTSTRAP_POLL_MS)
       }
     }
 
-    hydrateKnowledge()
+    poll()
 
     return () => {
       cancelled = true
     }
-  }, [bootstrapHistory, bridgeDetected, getBootstrapStatus, getSnapshot, getStatus])
+  }, [bootstrap?.status, bridgeDetected, getBootstrapStatus, refreshKnowledge])
+
+  const startBootstrapImport = useCallback(async (options = {}) => {
+    const response = await bootstrapHistory(options)
+    const state = response?.bootstrap || response || null
+    if (state) {
+      setBootstrap(state)
+    }
+    return state
+  }, [bootstrapHistory])
 
   const analyzeThought = useCallback((query) => {
     if (!knowledge) {
@@ -347,6 +384,8 @@ export function useExtension() {
       getSnapshot,
       getBootstrapStatus,
       bootstrapHistory,
+      startBootstrapImport,
+      refreshKnowledge,
       analyzeThought,
       clearAllData,
       sendToExtension,
@@ -361,15 +400,17 @@ export function useExtension() {
       environment,
       getBootstrapStatus,
       getSnapshot,
-      getStatus,
       getStats,
+      getStatus,
       getSuggestions,
       knowledge,
       mode,
       ready,
+      refreshKnowledge,
       requiresBridge,
       search,
       sendToExtension,
+      startBootstrapImport,
       webMemoryCount,
     ]
   )

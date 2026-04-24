@@ -33,6 +33,9 @@
   --line-strong: var(--white-24);
   --panel: var(--white-06);
   --panel-strong: rgba(255, 255, 255, 0.04);
+  --scroll-track: rgba(255, 255, 255, 0.04);
+  --scroll-thumb: rgba(255, 255, 255, 0.18);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.3);
   --ui-font: 'IBM Plex Sans', 'Segoe UI', sans-serif;
   --brand-font: 'Orbitron', 'Segoe UI', sans-serif;
   --safe-top: env(safe-area-inset-top);
@@ -55,6 +58,8 @@ html {
   scroll-behavior: smooth;
   background: var(--bg);
   overflow-x: hidden;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: thin;
 }
 
 body {
@@ -67,6 +72,49 @@ body {
     radial-gradient(circle at 86% 18%, rgba(255, 255, 255, 0.09), transparent 28%),
     var(--bg);
   font-family: var(--ui-font);
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: thin;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.suggestion-dock::-webkit-scrollbar,
+.history-popover::-webkit-scrollbar,
+.memact-modal::-webkit-scrollbar,
+.memact-modal__steps::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.suggestion-dock::-webkit-scrollbar-track,
+.history-popover::-webkit-scrollbar-track,
+.memact-modal::-webkit-scrollbar-track,
+.memact-modal__steps::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.suggestion-dock::-webkit-scrollbar-thumb,
+.history-popover::-webkit-scrollbar-thumb,
+.memact-modal::-webkit-scrollbar-thumb,
+.memact-modal__steps::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scroll-thumb);
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.suggestion-dock::-webkit-scrollbar-thumb:hover,
+.history-popover::-webkit-scrollbar-thumb:hover,
+.memact-modal::-webkit-scrollbar-thumb:hover,
+.memact-modal__steps::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: padding-box;
 }
 
 button,
@@ -301,6 +349,10 @@ button {
   background: var(--bg);
   box-shadow: var(--shadow);
   padding: 18px;
+  max-height: min(72vh, 560px);
+  overflow: auto;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: thin;
 }
 
 .info-popover p {
@@ -647,6 +699,8 @@ button {
   backdrop-filter: blur(20px);
   overflow: auto;
   padding: 8px;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: thin;
 }
 
 .suggestion-heading {
@@ -720,6 +774,160 @@ button {
   font-weight: 800;
   letter-spacing: 0.02em;
   transition: color 160ms ease, opacity 160ms ease;
+}
+
+.memact-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding:
+    max(20px, calc(20px + var(--safe-top)))
+    max(16px, calc(16px + var(--safe-right)))
+    max(20px, calc(20px + var(--safe-bottom)))
+    max(16px, calc(16px + var(--safe-left)));
+  background: rgba(0, 1, 27, 0.72);
+  backdrop-filter: blur(16px);
+}
+
+.memact-modal {
+  width: min(540px, 100%);
+  max-height: min(84vh, 780px);
+  display: grid;
+  gap: 16px;
+  overflow: auto;
+  border: 1px solid var(--white-16);
+  border-radius: 30px;
+  background: rgba(7, 8, 38, 0.96);
+  box-shadow: var(--shadow);
+  padding: clamp(20px, 3vw, 28px);
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: thin;
+}
+
+.memact-modal__title,
+.memact-modal__body,
+.memact-modal__note,
+.memact-modal__step {
+  margin: 0;
+}
+
+.memact-modal__title {
+  color: var(--white);
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.memact-modal__body,
+.memact-modal__note {
+  color: var(--white-76);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.memact-modal__steps {
+  display: grid;
+  gap: 10px;
+  max-height: min(28vh, 220px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--white-16);
+  border-radius: 22px;
+  background: var(--white-06);
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: thin;
+}
+
+.memact-modal__step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  color: var(--white-90);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.memact-modal__progress {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--white-16);
+  border-radius: 22px;
+  background: var(--white-06);
+}
+
+.memact-modal__progress-bar {
+  width: 100%;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.memact-modal__progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.92));
+  transition: width 220ms ease;
+}
+
+.memact-modal__progress-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.memact-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.memact-modal__button {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 1px solid var(--white-16);
+  border-radius: 999px;
+  background: var(--white-06);
+  color: var(--white);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.memact-modal__button--primary {
+  background: var(--white);
+  color: var(--bg);
+}
+
+.memact-modal__button--muted:disabled {
+  opacity: 0.8;
+  cursor: default;
+}
+
+.memact-modal__button:hover,
+.memact-modal__button:focus-visible {
+  outline: none;
+  background: var(--white-10);
+}
+
+.memact-modal__button--primary:hover,
+.memact-modal__button--primary:focus-visible {
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .answer-layout {
@@ -933,6 +1141,18 @@ blockquote {
   }
 
   .source-card button {
+    width: 100%;
+  }
+
+  .memact-modal {
+    border-radius: 24px;
+  }
+
+  .memact-modal__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .memact-modal__button {
     width: 100%;
   }
 }

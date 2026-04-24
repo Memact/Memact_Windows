@@ -16,14 +16,15 @@ The product is simple:
 Enter a thought -> see how it connects with what you read, watch, search, and revisit.
 ```
 
-Memact is not a generic search box. It uses the user's own local digital activity: pages, posts, videos, searches, and revisits saved by Capture.
+Memact is for understanding where thoughts are being formed, shaped, reinforced, or narrowed by digital activity.
 
-Memact is built for better decision making. It helps users:
+The point is practical, not abstract. Memact helps with:
 
-- See what sources may have shaped a thought.
-- Spot one-sided views before acting on them.
-- Understand emotions that may be tied to externally influenced thoughts.
-- Revisit the real context behind an idea instead of relying on memory alone.
+- spotting one-sided thinking and hidden bias before acting on it
+- making better decisions with source-backed context
+- understanding feelings around thoughts that may have been externally influenced
+- supporting mental health by surfacing repeated shaping patterns instead of leaving them invisible
+- communicating ideas more clearly because the user can inspect where those ideas came from
 
 ## How It Works
 
@@ -38,11 +39,11 @@ Capture -> Inference -> Schema -> Interface -> Influence / Origin
 - `Influence` shows what may have shaped the thought over time.
 - `Origin` finds possible source candidates that may have introduced it.
 
-The app should stay honest. It shows source candidates and patterns, not proof of causation.
+Memact stays grounded in captured evidence. It shows source-backed patterns, not certainty theatre.
 
 ## First-Use Bootstrap
 
-When Capture connects for the first time, Memact can seed itself with a limited slice of recent browser history so the system does not start empty.
+When Capture connects for the first time, Memact can ask permission to inspect a limited slice of recent browser activity so the system does not start empty.
 
 - `Capture` imports recent browser history locally on-device.
 - `Inference` turns that early activity into deterministic themes.
@@ -50,7 +51,9 @@ When Capture connects for the first time, Memact can seed itself with a limited 
 - `Influence` checks for repeated directional movement in those early activities.
 - `Origin` is then used per thought query to find direct source candidates.
 
-These early patterns are provisional. Memact upgrades them as richer live capture replaces bootstrap-only evidence.
+If the user declines the import prompt, Memact simply starts from future captured activity.
+
+Early patterns are provisional. Memact upgrades them as richer live capture replaces bootstrap-only evidence.
 
 ## Local OCR Policy
 
@@ -91,6 +94,27 @@ Preview:
 ```powershell
 npm run preview
 ```
+
+## Install Capture Extension
+
+If the interface opens without Capture, it will show an install popup first.
+
+The same extension zip used by that popup is available here:
+
+```text
+public/memact-extension.zip
+```
+
+Load it like this:
+
+1. Download `memact-extension.zip`.
+2. Extract the zip into a folder.
+3. Open `chrome://extensions` or `edge://extensions`.
+4. Turn on Developer Mode.
+5. Click `Load unpacked`.
+6. Select the extracted folder.
+
+After Capture is installed, Memact will ask whether it should import a limited local slice of recent browser activity. If that is declined, only future activity is used.
 
 ## Repository Layout
 

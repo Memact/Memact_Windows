@@ -3,6 +3,8 @@ import MathRichText from '../components/MathRichText'
 import SearchBar from '../components/SearchBar'
 import { useSearch } from '../hooks/useSearch'
 
+const INSTALL_PROMPT_DISMISSED_KEY = 'memact.install-prompt-dismissed'
+const IMPORT_DECISION_KEY = 'memact.import-decision'
 const EXAMPLE_PLACEHOLDERS = [
   'e.g. I feel like I\'m behind everyone',
   'e.g. startups are better than jobs',
@@ -36,15 +38,40 @@ function compactText(value, maxLength = 190) {
   return `${text.slice(0, maxLength - 3).trim()}...`
 }
 
+function readStoredValue(key, fallback = '') {
+  if (typeof window === 'undefined') return fallback
+  try {
+    return window.localStorage.getItem(key) || fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeStoredValue(key, value) {
+  if (typeof window === 'undefined') return
+  try {
+    if (!value) {
+      window.localStorage.removeItem(key)
+      return
+    }
+    window.localStorage.setItem(key, value)
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
 function buildStatus(extension, search, submittedQuery, voiceState) {
   if (voiceState === 'listening' || voiceState === 'processing') return 'Listening...'
   if (voiceState === 'done') return 'Done.'
   if (voiceState === 'unsupported') return 'Voice input unavailable.'
+  if (extension?.bootstrap?.status === 'running') {
+    const progress = Math.max(1, Number(extension?.bootstrap?.progress_percent || 0))
+    return `Processing... ${progress}%`
+  }
   if (search.loading) return 'Finding sources...'
   if (search.error) return search.error
   if (submittedQuery && search.results.length) return `${search.results.length} source candidates`
   if (submittedQuery) return 'No strong source match yet.'
-  if (extension?.bootstrap?.status === 'running') return 'Seeding from recent browser activity...'
   if (extension?.bootstrap?.status === 'complete' && Number(extension?.bootstrap?.imported_count || 0) > 0) {
     return `${extension.bootstrap.imported_count} early activity sources seeded.`
   }
@@ -79,7 +106,7 @@ function buildActivitySuggestions(search) {
   return search.suggestions
 }
 
-function buildEmptySuggestionMessage(extension) {
+function buildEmptySuggestionMessage(extension, importDecision) {
   if (extension?.bootstrap?.status === 'running') {
     return 'Memact is forming suggestions from recent browser activity.'
   }
@@ -88,7 +115,60 @@ function buildEmptySuggestionMessage(extension) {
     return 'No suggestions formed yet. Connect Capture to form them from your activity.'
   }
 
+  if (importDecision === 'denied') {
+    return 'No suggestions formed yet. Memact is waiting for future captured activity.'
+  }
+
   return 'No suggestions formed yet. Once there is enough evidence, they will appear here.'
+}
+
+function OnboardingModal({
+  title,
+  body,
+  steps = [],
+  progress = null,
+  note = '',
+  primaryAction = null,
+  secondaryAction = null,
+}) {
+  return (
+    <div className="memact-modal-backdrop" role="presentation">
+      <section className="memact-modal" role="dialog" aria-modal="true" aria-label={title}>
+        <p className="eyebrow">Memact setup</p>
+        <h2 className="memact-modal__title">{title}</h2>
+        <p className="memact-modal__body">{body}</p>
+
+        {typeof progress === 'number' ? (
+          <div className="memact-modal__progress">
+            <div className="memact-modal__progress-bar">
+              <span style={{ width: `${Math.max(4, Math.min(100, progress))}%` }} />
+            </div>
+            <div className="memact-modal__progress-copy">
+              <span>Processing...</span>
+              <span>{Math.max(1, Math.min(100, Math.round(progress)))}%</span>
+            </div>
+            {note ? <p className="memact-modal__note">{note}</p> : null}
+          </div>
+        ) : null}
+
+        {steps.length ? (
+          <div className="memact-modal__steps">
+            {steps.map((step, index) => (
+              <p key={`${index + 1}-${step}`} className="memact-modal__step">
+                <span>{index + 1}.</span>
+                <span>{step}</span>
+              </p>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="memact-modal__actions">
+          {primaryAction}
+          {secondaryAction}
+        </div>
+      </section>
+    </div>
+  )
 }
 
 function BackIcon() {
@@ -196,11 +276,13 @@ export default function Search({ extension }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
   const [voiceState, setVoiceState] = useState('idle')
+  const [installPromptDismissed, setInstallPromptDismissed] = useState(false)
+  const [importDecision, setImportDecision] = useState('')
   const topActionsRef = useRef(null)
   const historyPopoverRef = useRef(null)
 
   const suggestions = useMemo(() => buildActivitySuggestions(search), [search])
-  const emptySuggestionMessage = buildEmptySuggestionMessage(extension)
+  const emptySuggestionMessage = buildEmptySuggestionMessage(extension, importDecision)
   const status = buildStatus(extension, search, submittedQuery, voiceState)
   const answerText = buildAnswerText(submittedQuery, search.answerMeta, search.results)
   const hasSubmitted = Boolean(submittedQuery)
@@ -208,6 +290,42 @@ export default function Search({ extension }) {
   const canGoForward = navigation.index < navigation.entries.length - 1
   const shouldShowNavigation = hasSubmitted || canGoForward
   const historyItems = search.recentSearches.filter(Boolean).slice(0, 8)
+  const bootstrapState = extension?.bootstrap || {}
+  const captureEventCount = Number(search.stats?.eventCount || extension?.knowledge?.stats?.eventCount || 0)
+  const hasBootstrapData =
+    bootstrapState.status === 'complete' && Number(bootstrapState.imported_count || 0) > 0
+  const shouldAskForImport =
+    extension?.bridgeDetected &&
+    !extension?.requiresBridge &&
+    !hasBootstrapData &&
+    captureEventCount < 40 &&
+    bootstrapState.status !== 'running' &&
+    importDecision !== 'denied'
+  const shouldShowInstallModal = extension?.requiresBridge && !installPromptDismissed
+  const shouldShowImportModal = !shouldShowInstallModal && shouldAskForImport
+  const shouldShowProcessingModal =
+    !shouldShowInstallModal &&
+    !shouldShowImportModal &&
+    bootstrapState.status === 'running'
+
+  useEffect(() => {
+    setInstallPromptDismissed(readStoredValue(INSTALL_PROMPT_DISMISSED_KEY) === '1')
+    setImportDecision(readStoredValue(IMPORT_DECISION_KEY))
+  }, [])
+
+  useEffect(() => {
+    if (extension?.bridgeDetected) {
+      setInstallPromptDismissed(false)
+      writeStoredValue(INSTALL_PROMPT_DISMISSED_KEY, '')
+    }
+  }, [extension?.bridgeDetected])
+
+  useEffect(() => {
+    if (hasBootstrapData) {
+      setImportDecision('allowed')
+      writeStoredValue(IMPORT_DECISION_KEY, 'allowed')
+    }
+  }, [hasBootstrapData])
 
   const runQuery = async (value = search.query, { record = true } = {}) => {
     const query = normalize(value)
@@ -308,6 +426,99 @@ export default function Search({ extension }) {
 
   return (
     <main className={`memact-page ${hasSubmitted ? 'has-results' : 'is-home'}`}>
+      {shouldShowInstallModal ? (
+        <OnboardingModal
+          title="Install Capture first."
+          body="Memact needs the Capture extension to connect thoughts with real browsing activity. Download the zip, extract it, and load the folder as an unpacked extension."
+          steps={[
+            'Download the extension zip.',
+            'Extract the zip into a folder on your machine.',
+            'Open chrome://extensions or edge://extensions.',
+            'Turn on Developer Mode.',
+            'Click Load unpacked and choose the extracted folder.',
+          ]}
+          primaryAction={
+            <a
+              className="memact-modal__button memact-modal__button--primary"
+              href="/memact-extension.zip"
+              download="memact-extension.zip"
+            >
+              Download extension zip
+            </a>
+          }
+          secondaryAction={
+            <button
+              className="memact-modal__button"
+              type="button"
+              onClick={() => {
+                setInstallPromptDismissed(true)
+                writeStoredValue(INSTALL_PROMPT_DISMISSED_KEY, '1')
+              }}
+            >
+              Continue without Capture
+            </button>
+          }
+        />
+      ) : null}
+
+      {shouldShowImportModal ? (
+        <OnboardingModal
+          title="Import recent activity?"
+          body="Memact can inspect a limited local slice of recent browser activity to form first suggestions and early patterns. If you skip this, only future captured activity will appear."
+          steps={[
+            'Import runs locally on this device.',
+            'Memact checks what to include and what to skip before saving.',
+            'If you skip it now, only future activity will be used.',
+          ]}
+          primaryAction={
+            <button
+              className="memact-modal__button memact-modal__button--primary"
+              type="button"
+              onClick={() => {
+                setImportDecision('allowed')
+                writeStoredValue(IMPORT_DECISION_KEY, 'allowed')
+                extension?.startBootstrapImport?.({
+                  days: 21,
+                  limit: 320,
+                })
+              }}
+            >
+              Allow local import
+            </button>
+          }
+          secondaryAction={
+            <button
+              className="memact-modal__button"
+              type="button"
+              onClick={() => {
+                setImportDecision('denied')
+                writeStoredValue(IMPORT_DECISION_KEY, 'denied')
+              }}
+            >
+              Use future activity only
+            </button>
+          }
+        />
+      ) : null}
+
+      {shouldShowProcessingModal ? (
+        <OnboardingModal
+          title="Processing..."
+          body="Memact is screening recent activity, deciding what belongs in memory, and forming the first useful suggestions."
+          progress={Number(bootstrapState.progress_percent || 0)}
+          note={bootstrapState.note || 'Checking what to include and what to skip.'}
+          secondaryAction={
+            <button
+              className="memact-modal__button memact-modal__button--muted"
+              type="button"
+              disabled
+            >
+              Working locally
+            </button>
+          }
+        />
+      ) : null}
+
       {shouldShowNavigation ? (
         <nav className="result-controls" aria-label="Result navigation">
           <button
