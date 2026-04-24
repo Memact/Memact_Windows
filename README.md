@@ -1,8 +1,8 @@
-# Memact Interface
+# Memact Website
 
 Version: `v0.0`
 
-Interface is the user-facing Memact app.
+Website is the user-facing Memact product surface.
 
 Tagline:
 
@@ -97,7 +97,7 @@ npm run preview
 
 ## Install Capture Extension
 
-If the interface opens without Capture, it will show an install popup first.
+If the website opens without Capture, it will show an install popup first.
 
 The same extension zip used by that popup is available here:
 
@@ -115,6 +115,54 @@ Load it like this:
 6. Select the extracted folder.
 
 After Capture is installed, Memact will ask whether it should import a limited local slice of recent browser activity. If that is declined, only future activity is used.
+
+## Search And Indexing
+
+The website now ships with the usual Google-facing essentials already in place:
+
+- canonical home URL
+- `robots.txt`
+- `sitemap.xml`
+- index/follow directives
+- JSON-LD for `Organization`, `WebSite`, `WebPage`, and `WebApplication`
+- Open Graph and Twitter card metadata
+- site manifest and favicon assets
+- homepage copy aligned with Memact's actual product purpose
+
+One step still requires the real site owner account: actual Google Search Console property verification. That token or verification HTML file must come from Search Console itself.
+
+After verification, the normal next steps are:
+
+1. Submit `https://www.memact.com/sitemap.xml` in Search Console.
+2. Inspect `https://www.memact.com/` in URL Inspection.
+3. Request indexing for the homepage if needed.
+4. Re-run inspection after major homepage updates.
+
+This follows Google Search Central guidance around sitemaps, canonical URLs, robots directives, structured data, and URL inspection.
+
+## Memact Stack At A Glance
+
+- `Capture`
+  Browser extension and evidence layer. Captures useful local digital activity.
+- `Inference`
+  Converts raw captured activity into deterministic meaning and themes.
+- `Schema`
+  Detects repeated mental-pattern signals such as emerging or reinforced schemas.
+- `Origin`
+  Finds possible direct source candidates that may have introduced a thought.
+- `Influence`
+  Finds repeated directional patterns showing what may have shaped a thought over time.
+- `Website`
+  The product surface where users type thoughts, inspect sources, install Capture, and review suggestions.
+
+Repositories:
+
+- [Capture](https://github.com/Memact/Capture)
+- [Inference](https://github.com/Memact/Inference)
+- [Schema](https://github.com/Memact/Schema)
+- [Origin](https://github.com/Memact/Origin)
+- [Influence](https://github.com/Memact/Influence)
+- [Website](https://github.com/Memact/Website)
 
 ## Repository Layout
 

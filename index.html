@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       name="description"
-      content="Memact helps you see how your thoughts and digital activity are connected."
+      content="Memact helps you inspect one-sided thinking, make better decisions, understand influenced feelings, and trace how digital activity shapes thoughts."
     />
     <meta name="robots" content="index,follow" />
     <meta
       name="googlebot"
       content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
     />
+    <meta name="author" content="Memact" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#00011B" />
     <meta name="application-name" content="Memact" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -20,27 +22,32 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
     <meta property="og:site_name" content="Memact" />
-    <meta property="og:title" content="Memact | Connect the Dots" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="Memact | Cite Your Thoughts" />
     <meta
       property="og:description"
-      content="Enter a thought and see how it connects with what you read, watch, search, and revisit."
+      content="Inspect one-sided thinking, make better decisions, understand influenced feelings, and connect thoughts with the digital activity behind them."
     />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://www.memact.com" />
     <meta property="og:image" content="https://www.memact.com/og-image.png" />
+    <meta property="og:image:secure_url" content="https://www.memact.com/og-image.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="532" />
     <meta property="og:image:height" content="179" />
     <meta property="og:image:alt" content="Memact logo" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Memact | Connect the Dots" />
+    <meta name="twitter:title" content="Memact | Cite Your Thoughts" />
     <meta
       name="twitter:description"
-      content="Enter a thought and see how it connects with what you read, watch, search, and revisit."
+      content="Inspect one-sided thinking, make better decisions, understand influenced feelings, and connect thoughts with the digital activity behind them."
     />
     <meta name="twitter:image" content="https://www.memact.com/og-image.png" />
-    <title>Memact | Connect the Dots</title>
+    <meta name="twitter:site" content="@memact" />
+    <title>Memact | Cite Your Thoughts</title>
     <link rel="canonical" href="https://www.memact.com/" />
+    <link rel="alternate" href="https://www.memact.com/" hreflang="en" />
+    <link rel="alternate" href="https://www.memact.com/" hreflang="x-default" />
     <link
       rel="preload"
       href="./assets/fonts/Orbitron-Bold.ttf"
@@ -56,20 +63,50 @@
         "@context": "https://schema.org",
         "@graph": [
           {
-            "@type": "WebSite",
+            "@type": "Organization",
+            "@id": "https://www.memact.com/#organization",
             "name": "Memact",
             "url": "https://www.memact.com/",
-            "description": "Memact helps you see how your thoughts and digital activity are connected.",
+            "logo": "https://www.memact.com/favicon.png"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.memact.com/#website",
+            "name": "Memact",
+            "alternateName": "Memact Website",
+            "url": "https://www.memact.com/",
+            "description": "Memact helps you inspect one-sided thinking, make better decisions, understand influenced feelings, and trace how digital activity shapes thoughts.",
+            "inLanguage": "en",
+            "publisher": {
+              "@id": "https://www.memact.com/#organization"
+            }
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://www.memact.com/#webpage",
+            "url": "https://www.memact.com/",
+            "name": "Memact",
+            "isPartOf": {
+              "@id": "https://www.memact.com/#website"
+            },
+            "description": "Memact helps you inspect one-sided thinking, make better decisions, understand influenced feelings, and trace how digital activity shapes thoughts.",
             "inLanguage": "en"
           },
           {
             "@type": "WebApplication",
+            "@id": "https://www.memact.com/#app",
             "name": "Memact",
             "url": "https://www.memact.com/",
             "applicationCategory": "ProductivityApplication",
             "operatingSystem": "Web, Android-ready PWA shell",
             "browserRequirements": "Requires JavaScript. Automatic browser capture uses the optional Memact browser extension on supported desktop Chromium browsers.",
-            "description": "Memact helps you see how your thoughts and digital activity are connected.",
+            "description": "Memact helps you inspect one-sided thinking, make better decisions, understand influenced feelings, and trace how digital activity shapes thoughts.",
+            "isPartOf": {
+              "@id": "https://www.memact.com/#website"
+            },
+            "publisher": {
+              "@id": "https://www.memact.com/#organization"
+            },
             "offers": {
               "@type": "Offer",
               "price": "0",
@@ -86,7 +123,7 @@
       <main>
         <h1>Memact</h1>
         <p>
-          Memact helps you see how your thoughts and digital activity are connected.
+          Memact helps you inspect one-sided thinking, make better decisions, understand influenced feelings, and trace how digital activity shapes thoughts.
         </p>
         <p>
           For the full app experience, enable JavaScript. Automatic browser capture on desktop uses

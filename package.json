@@ -1,8 +1,14 @@
 {
-  "name": "memact-interface",
+  "name": "memact-website",
   "private": true,
   "version": "0.0.0",
+  "description": "Memact Website and product surface.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Memact/Website.git"
+  },
+  "homepage": "https://github.com/Memact/Website",
   "scripts": {
     "postinstall": "node scripts/sync-transformers.mjs",
     "dev": "vite",

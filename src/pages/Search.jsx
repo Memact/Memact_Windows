@@ -5,10 +5,18 @@ import { useSearch } from '../hooks/useSearch'
 
 const INSTALL_PROMPT_DISMISSED_KEY = 'memact.install-prompt-dismissed'
 const IMPORT_DECISION_KEY = 'memact.import-decision'
+const INFO_AUTOSHOW_KEY = 'memact.info-autoshown'
 const EXAMPLE_PLACEHOLDERS = [
   'e.g. I feel like I\'m behind everyone',
   'e.g. startups are better than jobs',
   'e.g. I need to prove myself',
+]
+const THOUGHT_PROMPTS = [
+  'What have you been thinking?',
+  'What has been on your mind?',
+  'What idea keeps returning lately?',
+  'What thought have you been circling around?',
+  'What have you been quietly carrying?',
 ]
 
 function normalize(value) {
@@ -278,6 +286,7 @@ export default function Search({ extension }) {
   const [voiceState, setVoiceState] = useState('idle')
   const [installPromptDismissed, setInstallPromptDismissed] = useState(false)
   const [importDecision, setImportDecision] = useState('')
+  const [thoughtPrompt] = useState(() => THOUGHT_PROMPTS[Math.floor(Math.random() * THOUGHT_PROMPTS.length)])
   const topActionsRef = useRef(null)
   const historyPopoverRef = useRef(null)
 
@@ -326,6 +335,32 @@ export default function Search({ extension }) {
       writeStoredValue(IMPORT_DECISION_KEY, 'allowed')
     }
   }, [hasBootstrapData])
+
+  useEffect(() => {
+    const canAutoOpenInfo =
+      extension?.bridgeDetected &&
+      !extension?.requiresBridge &&
+      bootstrapState.status !== 'running' &&
+      !shouldShowInstallModal &&
+      !shouldShowImportModal
+
+    if (!canAutoOpenInfo) {
+      return
+    }
+
+    if (readStoredValue(INFO_AUTOSHOW_KEY) === '1') {
+      return
+    }
+
+    setInfoOpen(true)
+    writeStoredValue(INFO_AUTOSHOW_KEY, '1')
+  }, [
+    bootstrapState.status,
+    extension?.bridgeDetected,
+    extension?.requiresBridge,
+    shouldShowImportModal,
+    shouldShowInstallModal,
+  ])
 
   const runQuery = async (value = search.query, { record = true } = {}) => {
     const query = normalize(value)
@@ -653,7 +688,7 @@ export default function Search({ extension }) {
         </h1>
         <div className="brand-divider" aria-hidden="true" />
         {!hasSubmitted ? (
-          <p className="thought-prompt">What have you been thinking?</p>
+          <p className="thought-prompt">{thoughtPrompt}</p>
         ) : null}
         <SearchBar
           value={search.query}
@@ -694,6 +729,12 @@ export default function Search({ extension }) {
             )}
           </section>
         </section>
+      ) : null}
+
+      {(search.loading || bootstrapState.status === 'running') ? (
+        <div className="memact-loading-rail" aria-hidden="true">
+          <span />
+        </div>
       ) : null}
     </main>
   )

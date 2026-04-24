@@ -776,6 +776,36 @@ button {
   transition: color 160ms ease, opacity 160ms ease;
 }
 
+.memact-loading-rail {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 90;
+  height: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.memact-loading-rail span {
+  display: block;
+  width: 34%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.16));
+  animation: memact-loading-rail 1.1s ease-in-out infinite;
+}
+
+@keyframes memact-loading-rail {
+  0% {
+    transform: translateX(-108%);
+  }
+  100% {
+    transform: translateX(390%);
+  }
+}
+
 .memact-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -989,6 +1019,10 @@ blockquote {
 .source-panel {
   display: grid;
   gap: 16px;
+  max-height: calc(100dvh - 180px);
+  overflow: auto;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: thin;
 }
 
 .source-list {
@@ -1133,6 +1167,10 @@ blockquote {
 
   .answer-card {
     position: static;
+  }
+
+  .source-panel {
+    max-height: none;
   }
 
   .source-card__top {
