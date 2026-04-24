@@ -130,6 +130,37 @@ function buildEmptySuggestionMessage(extension, importDecision) {
   return 'No suggestions formed yet. Once there is enough evidence, they will appear here.'
 }
 
+function formatDuration(seconds) {
+  const safeSeconds = Math.max(0, Math.round(Number(seconds) || 0))
+  if (safeSeconds <= 8) return 'A few seconds'
+  if (safeSeconds < 60) return `About ${Math.ceil(safeSeconds / 10) * 10} sec`
+
+  const minutes = Math.max(1, Math.ceil(safeSeconds / 60))
+  return minutes === 1 ? 'About 1 min' : `About ${minutes} min`
+}
+
+function estimateBootstrapTime(bootstrapState, isError) {
+  if (isError) return 'Paused'
+
+  const explicitSeconds = Number(
+    bootstrapState?.estimated_seconds_remaining ??
+      bootstrapState?.eta_seconds ??
+      bootstrapState?.remaining_seconds
+  )
+  if (Number.isFinite(explicitSeconds) && explicitSeconds > 0) {
+    return formatDuration(explicitSeconds)
+  }
+
+  const progress = Number(bootstrapState?.progress_percent || 0)
+  if (progress >= 100) return 'Finishing now'
+  if (progress < 5) return 'Estimating...'
+  if (progress >= 85) return 'A few seconds'
+  if (progress >= 55) return 'Under 1 min'
+  if (progress >= 25) return 'About 1 min'
+
+  return 'About 2 min'
+}
+
 function OnboardingModal({
   title,
   body,
@@ -327,6 +358,11 @@ export default function Search({ extension }) {
   const isBootstrapRunning = bootstrapStatus === 'running'
   const isBootstrapError = bootstrapStatus === 'error'
   const isBootstrapComplete = bootstrapStatus === 'complete'
+  const bootstrapProgress = Math.max(
+    1,
+    Math.min(100, Math.round(Number(bootstrapState.progress_percent || (isBootstrapError ? 100 : 1))))
+  )
+  const bootstrapEstimate = estimateBootstrapTime(bootstrapState, isBootstrapError)
   const shouldKeepBootstrapPane = bootstrapRequested || isBootstrapRunning || isBootstrapError
   const isBackgroundProcessing = bootstrapRequested || isBootstrapRunning
   const shouldShowStatus = status !== 'Ready.'
@@ -919,6 +955,10 @@ export default function Search({ extension }) {
                     <span>Window</span>
                     <strong>{Number(bootstrapState.history_days || 0)} days</strong>
                   </p>
+                  <p className="processing-pane__detail">
+                    <span>Time left</span>
+                    <strong>{bootstrapEstimate}</strong>
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -926,16 +966,19 @@ export default function Search({ extension }) {
           <div className="processing-pane__meta">
             <div className="processing-pane__progress">
               <div className="processing-pane__progress-bar">
-                <span style={{ width: `${Math.max(4, Math.min(100, Number(bootstrapState.progress_percent || (isBootstrapError ? 100 : 1))))}%` }} />
+                <span style={{ width: `${Math.max(4, bootstrapProgress)}%` }} />
               </div>
               {!processingPaneCollapsed ? (
                 <p className="processing-pane__note">
-                  {bootstrapState.note || (isBootstrapError ? 'You can try local import again from Settings.' : 'Checking what to keep.')}
+                  {bootstrapState.note ||
+                    (isBootstrapError
+                      ? 'You can try local import again from Settings.'
+                      : `Checking what to keep. ${bootstrapEstimate}`)}
                 </p>
               ) : null}
             </div>
             <p className="processing-pane__percent">
-              {Math.max(1, Math.min(100, Math.round(Number(bootstrapState.progress_percent || (isBootstrapError ? 100 : 1)))))}%
+              {bootstrapProgress}%
             </p>
             <button
               className="processing-pane__toggle"
