@@ -946,6 +946,13 @@ button {
   backdrop-filter: blur(20px);
 }
 
+.processing-pane.is-collapsed {
+  width: min(340px, calc(100vw - 36px));
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 14px 14px 12px;
+}
+
 .processing-pane__copy,
 .processing-pane__progress {
   display: grid;
@@ -976,10 +983,40 @@ button {
 }
 
 .processing-pane__text,
-.processing-pane__note {
+.processing-pane__note,
+.processing-pane__detail {
   color: var(--white-76);
   font-size: 14px;
   line-height: 1.55;
+}
+
+.processing-pane__detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.processing-pane__detail {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--white-16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.processing-pane__detail span {
+  color: var(--white-46);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.processing-pane__detail strong {
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .processing-pane__meta {
@@ -1013,7 +1050,7 @@ button {
   letter-spacing: -0.03em;
 }
 
-.processing-pane__close {
+.processing-pane__toggle {
   width: 42px;
   height: 42px;
   display: grid;
@@ -1024,10 +1061,14 @@ button {
   color: var(--white);
 }
 
-.processing-pane__close:hover,
-.processing-pane__close:focus-visible {
+.processing-pane__toggle:hover,
+.processing-pane__toggle:focus-visible {
   outline: none;
   background: var(--white-10);
+}
+
+.processing-pane.is-collapsed .processing-pane__meta {
+  min-width: 0;
 }
 
 .memact-modal-backdrop {
@@ -1423,6 +1464,10 @@ blockquote {
     gap: 14px;
   }
 
+  .processing-pane__detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .processing-pane__meta {
     min-width: 0;
     grid-template-columns: minmax(0, 1fr) auto auto;
@@ -1489,12 +1534,21 @@ blockquote {
     border-radius: 22px;
   }
 
+  .processing-pane.is-collapsed {
+    width: calc(100vw - 24px);
+    padding: 12px;
+  }
+
+  .processing-pane__detail-grid {
+    grid-template-columns: 1fr;
+  }
+
   .processing-pane__meta {
     grid-template-columns: 1fr auto;
     gap: 12px;
   }
 
-  .processing-pane__close {
+  .processing-pane__toggle {
     grid-column: 2;
     grid-row: 1 / span 2;
     align-self: start;

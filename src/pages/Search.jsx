@@ -236,6 +236,18 @@ function SettingsIcon() {
   )
 }
 
+function CollapseIcon({ expanded = true }) {
+  return (
+    <svg className="control-icon control-icon--arrow control-icon--collapse" viewBox="0 0 24 24" aria-hidden="true">
+      {expanded ? (
+        <path d="m7 14.5 5-5 5 5" />
+      ) : (
+        <path d="m7 9.5 5 5 5-5" />
+      )}
+    </svg>
+  )
+}
+
 function DeleteIcon() {
   return (
     <svg className="control-icon control-icon--cross" viewBox="0 0 24 24" aria-hidden="true">
@@ -300,7 +312,7 @@ export default function Search({ extension }) {
   const [importDecision, setImportDecision] = useState('')
   const [setupPromptRequested, setSetupPromptRequested] = useState(false)
   const [bootstrapRequested, setBootstrapRequested] = useState(false)
-  const [processingPaneDismissed, setProcessingPaneDismissed] = useState(false)
+  const [processingPaneCollapsed, setProcessingPaneCollapsed] = useState(false)
   const [thoughtPrompt] = useState(() => THOUGHT_PROMPTS[Math.floor(Math.random() * THOUGHT_PROMPTS.length)])
   const topActionsRef = useRef(null)
   const historyPopoverRef = useRef(null)
@@ -344,8 +356,7 @@ export default function Search({ extension }) {
   const shouldShowProcessingPane =
     !shouldShowInstallModal &&
     !shouldShowImportModal &&
-    isBackgroundProcessing &&
-    !processingPaneDismissed
+    isBackgroundProcessing
 
   const requestSetupPrompt = () => {
     setSetupPromptRequested(true)
@@ -404,7 +415,7 @@ export default function Search({ extension }) {
 
   useEffect(() => {
     if (isBackgroundProcessing) {
-      setProcessingPaneDismissed(false)
+      setProcessingPaneCollapsed(false)
     }
   }, [isBackgroundProcessing])
 
@@ -866,33 +877,60 @@ export default function Search({ extension }) {
       ) : null}
 
       {shouldShowProcessingPane ? (
-        <aside className="processing-pane" role="status" aria-live="polite" aria-label="Memact setup progress">
-          <div className="processing-pane__copy">
-            <p className="processing-pane__eyebrow">Memact setup</p>
-            <p className="processing-pane__title">Working in the background.</p>
-            <p className="processing-pane__text">
-              Memact is going through recent activity and getting your first suggestions ready. Search will open when this finishes.
-            </p>
-          </div>
+        <aside
+          className={`processing-pane ${processingPaneCollapsed ? 'is-collapsed' : 'is-expanded'}`}
+          role="status"
+          aria-live="polite"
+          aria-label="Memact setup progress"
+        >
+          {!processingPaneCollapsed ? (
+            <div className="processing-pane__copy">
+              <p className="processing-pane__eyebrow">Memact setup</p>
+              <p className="processing-pane__title">Working in the background.</p>
+              <p className="processing-pane__text">
+                Memact is going through recent activity and getting your first suggestions ready. Search will open when this finishes.
+              </p>
+              <div className="processing-pane__detail-grid">
+                <p className="processing-pane__detail">
+                  <span>Stage</span>
+                  <strong>{normalize(bootstrapState.stage || 'processing')}</strong>
+                </p>
+                <p className="processing-pane__detail">
+                  <span>Imported</span>
+                  <strong>{Number(bootstrapState.imported_count || 0)}</strong>
+                </p>
+                <p className="processing-pane__detail">
+                  <span>Checked</span>
+                  <strong>{Number(bootstrapState.scanned_count || bootstrapState.processed_count || 0)}</strong>
+                </p>
+                <p className="processing-pane__detail">
+                  <span>Window</span>
+                  <strong>{Number(bootstrapState.history_days || 0)} days</strong>
+                </p>
+              </div>
+            </div>
+          ) : null}
           <div className="processing-pane__meta">
             <div className="processing-pane__progress">
               <div className="processing-pane__progress-bar">
                 <span style={{ width: `${Math.max(4, Math.min(100, Number(bootstrapState.progress_percent || 0)))}%` }} />
               </div>
-              <p className="processing-pane__note">
-                {bootstrapState.note || 'Checking what to keep.'}
-              </p>
+              {!processingPaneCollapsed ? (
+                <p className="processing-pane__note">
+                  {bootstrapState.note || 'Checking what to keep.'}
+                </p>
+              ) : null}
             </div>
             <p className="processing-pane__percent">
               {Math.max(1, Math.min(100, Math.round(Number(bootstrapState.progress_percent || 0))))}%
             </p>
             <button
-              className="processing-pane__close"
+              className="processing-pane__toggle"
               type="button"
-              aria-label="Close processing pane"
-              onClick={() => setProcessingPaneDismissed(true)}
+              aria-label={processingPaneCollapsed ? 'Expand processing pane' : 'Shrink processing pane'}
+              onClick={() => setProcessingPaneCollapsed((current) => !current)}
             >
-              <DeleteIcon />
+              <CollapseIcon expanded={!processingPaneCollapsed} />
             </button>
           </div>
         </aside>
