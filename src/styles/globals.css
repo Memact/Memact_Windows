@@ -930,7 +930,7 @@ button {
 .processing-pane {
   position: fixed;
   left: 50%;
-  bottom: max(18px, calc(18px + var(--safe-bottom)));
+  bottom: max(46px, calc(46px + var(--safe-bottom)));
   z-index: 70;
   width: min(920px, calc(100vw - 36px));
   display: grid;
@@ -947,6 +947,7 @@ button {
 }
 
 .processing-pane.is-collapsed {
+  bottom: max(18px, calc(18px + var(--safe-bottom)));
   width: min(340px, calc(100vw - 36px));
   grid-template-columns: 1fr;
   gap: 12px;
@@ -1529,7 +1530,7 @@ blockquote {
 
   .processing-pane {
     left: 50%;
-    bottom: max(12px, calc(12px + var(--safe-bottom)));
+    bottom: max(36px, calc(36px + var(--safe-bottom)));
     right: auto;
     width: min(calc(100vw - 24px), 560px);
     padding: 16px 14px 14px;
@@ -1537,6 +1538,7 @@ blockquote {
   }
 
   .processing-pane.is-collapsed {
+    bottom: max(12px, calc(12px + var(--safe-bottom)));
     width: min(calc(100vw - 24px), 360px);
     padding: 12px;
   }
