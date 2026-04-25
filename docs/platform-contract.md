@@ -13,7 +13,7 @@ Capture -> Inference -> Schema -> Website Client -> Influence / Origin -> Explan
 
 The Website client is only one surface.
 Android should become another surface over the same contracts.
-An API explanation layer should only format evidence that deterministic engines already found.
+An API explanation layer may produce the short answer, but only from evidence that deterministic engines already selected.
 
 ## Runtime Context
 
@@ -51,7 +51,7 @@ Android can use the same shape with:
 
 ## Knowledge Envelope
 
-`memact.knowledge_envelope` is the shared local knowledge object.
+`memact.knowledge_envelope` is the shared knowledge object kept on the client side.
 It keeps raw evidence and derived layers together without hiding what came from where.
 
 ```json
@@ -103,11 +103,11 @@ Rules:
 ```
 
 The visible product can render `answer`.
-An API can consume `apiExplanationRequest` later for better language.
+An API can consume `apiExplanationRequest` for a short Gemini answer without receiving the full Capture snapshot.
 
 ## API Explanation Request
 
-`memact.api_explanation_request` is designed for a future hosted explanation API.
+`memact.api_explanation_request` is the minimal cloud packet for hosted explanation.
 
 ```json
 {
@@ -115,8 +115,9 @@ An API can consume `apiExplanationRequest` later for better language.
   "version": "0.1.0",
   "query": "I need to prove myself",
   "policy": {
-    "ai_role": "language_formatting_only",
+    "ai_role": "short_answer_from_minimal_schema_packet",
     "deterministic_reasoning_done": true,
+    "cloud_payload_minimized": true,
     "must_not_invent_sources": true,
     "must_not_claim_causality": true,
     "must_preserve_uncertainty": true
@@ -131,7 +132,9 @@ An API can consume `apiExplanationRequest` later for better language.
 }
 ```
 
-AI can improve wording only after the deterministic evidence exists.
+Gemini can write the short answer only after deterministic evidence exists.
+The API receives selected origin sources, schema signals, influence signals, counts, and compact source summaries.
+It must not receive the full Capture snapshot, full page text, screenshots, or unrelated activity.
 If evidence is weak, the API must say that plainly.
 
 ## Android Readiness
@@ -143,7 +146,7 @@ It should implement or call these same boundaries:
 - Deterministic engines consume the snapshot.
 - Client stores `memact.knowledge_envelope`.
 - Search/query returns `memact.thought_explanation`.
-- Optional API receives `memact.api_explanation_request`.
+- Optional API receives only `memact.api_explanation_request`.
 
 This keeps Website, Android, and API output aligned.
 
@@ -163,14 +166,15 @@ Website and future clients should only request a full snapshot when that signatu
 ```
 
 This keeps the UI fast, avoids repeatedly transferring captured data, and gives Android/API clients the same clean sync strategy.
+Automatic capture should use status signatures and bridge/API reads, not repeated downloaded snapshot files.
 
 ## Graph Health Pattern
 
 Memact borrows one useful infrastructure pattern from local wiki systems:
-separate deterministic graph health from language generation.
+separate deterministic graph health from cloud answer generation.
 
 - cache by stable signatures or hashes
 - rebuild only changed knowledge
 - keep explicit edges separate from inferred edges
-- run structural checks without AI
-- let language format the result only after evidence is fixed
+- run structural checks without Gemini
+- let Gemini answer only after evidence is fixed and minimized

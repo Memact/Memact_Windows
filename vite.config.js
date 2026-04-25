@@ -13,6 +13,9 @@ export default defineConfig({
     fs: {
       allow: [fileURLToPath(new URL('..', import.meta.url))],
     },
+    proxy: {
+      '/api': 'http://localhost:8787',
+    },
   },
   build: {
     outDir: 'dist',

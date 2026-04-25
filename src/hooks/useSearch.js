@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { structureAnswerMeta } from '../lib/localLanguageModel'
+import { requestCloudExplanation } from '../lib/cloudExplanation'
 
 const RECENT_SEARCHES_KEY = 'memact.recent-searches'
 const MAX_RECENTS = 10
@@ -642,12 +642,12 @@ export function useSearch(extension, activeTimeFilter = null) {
         setAnswerMeta(deterministicAnswerMeta || normalizedAnswerMeta)
         setResults(normalizedResults)
 
-        if (normalizedAnswerMeta && !deterministicAnswerMeta) {
-          void structureAnswerMeta({
+        if (deterministicAnswerMeta || normalizedAnswerMeta) {
+          void requestCloudExplanation({
             query: normalized,
-            answerMeta: normalizedAnswerMeta,
+            explanation: deterministicAnalysis?.explanation,
+            answerMeta: deterministicAnswerMeta || normalizedAnswerMeta,
             results: normalizedResults,
-            environment: extension?.environment,
           }).then((structured) => {
             if (
               !structured ||
@@ -666,9 +666,9 @@ export function useSearch(extension, activeTimeFilter = null) {
                 overview: structured.overview || current.overview,
                 answer: structured.answer || current.answer,
                 summary: structured.summary || current.summary,
-                polishedByLocalModel: Boolean(structured.applied),
-                localModel: structured.model,
-                localModelDevice: structured.device,
+                answeredByCloudModel: Boolean(structured.applied),
+                cloudProvider: structured.provider,
+                cloudModel: structured.model,
               }
             })
           })

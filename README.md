@@ -46,11 +46,13 @@ docs/platform-contract.md
 ```
 
 The important rule is simple:
-AI can help explain the wording later, but the evidence must already come from deterministic Memact engines.
+Gemini can answer from a small evidence packet, but the evidence must already come from deterministic Memact engines.
+Memact sends only the query, selected schema/origin/influence signals, and a few source summaries, not the full Capture snapshot.
 
 Website uses Capture's lightweight memory signature before pulling a full snapshot.
 That means it does not keep downloading captured memory when nothing changed.
 Search still talks to Capture directly, and Capture ranks results with local sentence-transformer embeddings.
+Capture keeps collecting automatically through the extension bridge; it no longer relies on repeated snapshot downloads.
 
 ## First-Time Setup
 
@@ -109,6 +111,40 @@ Preview:
 ```powershell
 npm run preview
 ```
+
+## Gemini Answer Layer
+
+Memact can use Gemini 2.5 Flash for short answers after local evidence selection.
+The browser does not receive the Gemini API key.
+The browser sends a minimal evidence packet to the Memact server endpoint, and that server calls Gemini.
+
+Create `.env` from `.env.example` and replace the placeholder:
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+Run the Vite UI:
+
+```powershell
+npm run dev
+```
+
+Run the API/server in another terminal:
+
+```powershell
+npm run api
+```
+
+For a single production-style local server:
+
+```powershell
+npm run build
+npm run serve
+```
+
+If `VITE_MEMACT_GEMINI_ENDPOINT` is not set, Memact still works with deterministic answers and sources.
 
 ## Extension Zip
 

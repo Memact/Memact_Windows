@@ -110,8 +110,9 @@ export function createApiExplanationRequest({
     generated_at: nowIso(),
     query: normalize(query),
     policy: {
-      ai_role: 'language_formatting_only',
+      ai_role: 'short_answer_from_minimal_schema_packet',
       deterministic_reasoning_done: true,
+      cloud_payload_minimized: true,
       must_not_invent_sources: true,
       must_not_claim_causality: true,
       must_preserve_uncertainty: true,
