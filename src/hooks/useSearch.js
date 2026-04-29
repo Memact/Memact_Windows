@@ -454,9 +454,45 @@ function hasDeterministicEvidence(analysis, results = []) {
   return Boolean(
     results.length ||
       analysis?.origin?.candidates?.length ||
+      analysis?.relevantCognitiveSchemas?.length ||
       analysis?.relevantSchemas?.length ||
       analysis?.relevantInfluence?.length
   )
+}
+
+function isWeakDeterministicAnswer(answerMeta) {
+  const answer = normalize(answerMeta?.answer).toLowerCase()
+  const summary = normalize(answerMeta?.summary).toLowerCase()
+  return (
+    !answer ||
+    answer.includes('does not have a strong answer') ||
+    summary.includes('not enough captured evidence') ||
+    summary.includes('did not find strong enough')
+  )
+}
+
+function shouldRequestCloudExplanation(analysis, answerMeta, results = []) {
+  const mode = normalize(import.meta.env.VITE_MEMACT_AI_MODE || 'fallback').toLowerCase()
+  if (mode === 'off' || mode === 'local') {
+    return false
+  }
+
+  const hasStrongEvidence = Boolean(
+    results.length ||
+      analysis?.origin?.candidates?.length ||
+      analysis?.relevantCognitiveSchemas?.length ||
+      analysis?.relevantInfluence?.length
+  )
+
+  if (!hasStrongEvidence) {
+    return false
+  }
+
+  if (mode === 'assistive' || mode === 'always') {
+    return true
+  }
+
+  return isWeakDeterministicAnswer(answerMeta)
 }
 
 function withTimeout(promise, ms, fallback = null) {
@@ -740,7 +776,8 @@ export function useSearch(extension, activeTimeFilter = null) {
 
         if (
           (deterministicAnswerMeta || normalizedAnswerMeta) &&
-          hasDeterministicEvidence(deterministicAnalysis, normalizedResults)
+          hasDeterministicEvidence(deterministicAnalysis, normalizedResults) &&
+          shouldRequestCloudExplanation(deterministicAnalysis, finalAnswerMeta, normalizedResults)
         ) {
           void requestCloudExplanation({
             query: normalized,

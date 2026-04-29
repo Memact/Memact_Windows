@@ -130,6 +130,7 @@ npm run preview
 ## Gemini Answer Layer
 
 Memact can use Gemini 2.5 Flash for short answers after local evidence selection.
+The default mode is `fallback`, which keeps Memact's deterministic answer as the main path and only asks Gemini when there is real evidence but the local wording is weak.
 The browser does not receive the Gemini API key.
 The browser sends a minimal evidence packet to the Memact server endpoint, and that server calls Gemini.
 
@@ -163,6 +164,15 @@ If `VITE_MEMACT_GEMINI_ENDPOINT` is not set, Memact still works with determinist
 
 If the extension bridge or Gemini endpoint is slow, Website falls back to Memact's deterministic local pipeline.
 It should show an honest no-source state instead of a generic failed-search message.
+
+AI modes:
+
+- `VITE_MEMACT_AI_MODE=fallback`
+  Default. Use Gemini only when deterministic evidence exists but local wording is weak.
+- `VITE_MEMACT_AI_MODE=assistive`
+  Allow Gemini to polish short answers from selected evidence more often.
+- `VITE_MEMACT_AI_MODE=off`
+  Never call Gemini. Memact still works from Capture, Inference, Schema, Memory, Origin, and Influence.
 
 Server safety:
 
