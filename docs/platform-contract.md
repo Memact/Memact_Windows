@@ -13,7 +13,7 @@ Capture -> Inference -> Schema -> Memory -> Website Client -> Influence / Origin
 
 The Website client is only one surface.
 Android should become another surface over the same contracts.
-An API explanation layer may produce the short answer, but only from Memory's RAG context: virtual cognitive-schema memory first, supporting memories second, and selected source evidence only.
+An API explanation layer may produce the short answer, but only from Memory's RAG context: virtual cognitive-schema memory first, supporting memories second, relation trails third, and selected source evidence only.
 
 ## Runtime Context
 
@@ -133,6 +133,13 @@ An API can consume `apiExplanationRequest` for a short Gemini answer without rec
     "cognitive_schema_memories": [],
     "rag_context": {
       "contract": "memact.rag_context",
+      "retrieval_steps": [],
+      "memory_lanes": {
+        "cognitive_schema": [],
+        "activity": [],
+        "relation": []
+      },
+      "relation_trails": [],
       "context_items": [],
       "sources": []
     },

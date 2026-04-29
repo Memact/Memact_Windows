@@ -52,11 +52,13 @@ Memact first filters captured activity into meaningful packets through Inference
 Memory stores potential cognitive schemas as virtual schema memories.
 Query retrieval starts from those virtual cognitive schemas, then uses activity/source packets as evidence.
 Website receives a `memact.rag_context` from Memory before any optional Gemini answer.
-That RAG context is small by design: cognitive-schema memories first, supporting memories second, sources attached only as evidence.
+That RAG context is small by design: cognitive-schema memories first, supporting memories second, relation trails third, sources attached only as evidence.
 Dynamic memory actions reinforce, weaken, link, or forget those schema memories over time, closer to how mental frames change with repeated experience.
 Schema, Origin, and Influence work from retained memory instead of raw browsing noise.
 Gemini can answer from a small evidence packet, but the evidence must already come from deterministic Memact engines.
 Memact sends only the query, selected schema/origin/influence signals, and a few source summaries, not the full Capture snapshot.
+
+The Website contract carries Memory's `memory_lanes` and `relation_trails` to the server. That means cloud explanation can say why a schema is relevant without receiving the user's full activity history.
 
 Memory is storage-agnostic. Today Website uses local/extension state. Later, the same Memory repository interface can load/save through Google Drive, Supabase, S3, or encrypted user-owned storage without changing the Website query contract.
 
