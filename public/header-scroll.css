@@ -51,9 +51,11 @@ body.topbar-scrolled .success-overlay.has-error {
   }
 
   html.topbar-scrolled .topbar,
-  body.topbar-scrolled .topbar {
+  body.topbar-scrolled .topbar,
+  html.topbar-scrolled .page:not(.page-auth) .topbar,
+  body.topbar-scrolled .page:not(.page-auth) .topbar {
     top: var(--topbar-stuck-top) !important;
-    border-top-left-radius: 0 !important;
-    border-top-right-radius: 0 !important;
+    border-radius: 0 0 var(--topbar-radius) var(--topbar-radius) !important;
+    border-top-color: transparent !important;
   }
 }
