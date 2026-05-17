@@ -11,6 +11,8 @@
   overflow: visible !important;
   clip-path: none !important;
   transform: translateX(-50%) !important;
+  background: #00011b !important;
+  backdrop-filter: none !important;
 }
 
 html.topbar-scrolled .topbar,
@@ -19,6 +21,8 @@ body.topbar-scrolled .topbar {
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
   border-top-color: transparent !important;
+  background: #00011b !important;
+  backdrop-filter: none !important;
   box-shadow: 0 18px 52px rgba(0, 0, 0, 0.32) !important;
 }
 
@@ -48,6 +52,8 @@ body.topbar-scrolled .success-overlay.has-error {
     top: var(--topbar-rest-top) !important;
     border-radius: var(--topbar-radius) !important;
     overflow: visible !important;
+    background: #00011b !important;
+    backdrop-filter: none !important;
   }
 
   html.topbar-scrolled .topbar,
@@ -57,5 +63,7 @@ body.topbar-scrolled .success-overlay.has-error {
     top: var(--topbar-stuck-top) !important;
     border-radius: 0 0 var(--topbar-radius) var(--topbar-radius) !important;
     border-top-color: transparent !important;
+    background: #00011b !important;
+    backdrop-filter: none !important;
   }
 }
