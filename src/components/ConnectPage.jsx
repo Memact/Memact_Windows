@@ -15,7 +15,7 @@ export function ConnectPage({ connectRequest, connectDetails, loading, notice, o
           <div>
             <p className="eyebrow">Connect app</p>
             <h1>{appName} wants to connect.</h1>
-            <p className="muted">Review what this app can use, then approve or cancel.</p>
+            <p className="muted">Review how this app wants to use approved activity to understand what you are trying to do.</p>
           </div>
           <span className="consent-state-pill">User controlled</span>
         </div>
@@ -37,12 +37,12 @@ export function ConnectPage({ connectRequest, connectDetails, loading, notice, o
           <p className="eyebrow">Before you approve</p>
           <div className="consent-points">
             <div className="mini-row">
-              <strong>This app only gets approved understanding.</strong>
-              <small>It cannot take unlimited memory or raw activity.</small>
+              <strong>Approval is optional and scoped.</strong>
+              <small>Permissions and categories limit what this app can use.</small>
             </div>
             <div className="mini-row">
-              <strong>You can review details first.</strong>
-              <small>Data Transparency shows what the app is asking to use.</small>
+              <strong>Raw private data is not shared by default.</strong>
+              <small>Data Transparency shows the activity and intent context the app is asking for.</small>
             </div>
           </div>
           <div className="connect-link-row">

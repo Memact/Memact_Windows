@@ -75,7 +75,7 @@ export function permissionSuggestionForCategories(policy, categories = []) {
   const selectedCategories = normalizeSelectedCategories(categories, policy)
   const scopes = suggestedScopesForCategories(policy, selectedCategories)
   return {
-    label: selectedCategories.includes("web:news") ? "Suggested for article understanding" : "Suggested permissions",
+    label: selectedCategories.includes("web:news") ? "Article intent preset" : "Suggested intent preset",
     description: "Selected from this app's activity categories. You can still adjust it.",
     scopes: normalizeSelectedScopes(scopes, policy),
     categories: selectedCategories
@@ -95,20 +95,20 @@ export function presetSuggestionsForPolicy(policy, categories = [], appPurpose =
   return [
     {
       ...primary,
-      label: selectedCategories.includes("web:news") ? "Article understanding preset" : primary.label,
+      label: selectedCategories.includes("web:news") ? "Article intent preset" : primary.label,
       scopes: purposeBoostedScopes
     },
     {
       id: `lean-${leanScopes.join("-")}`,
-      label: "Lean summary preset",
-      description: "Smallest useful set for compact context.",
+      label: "Lean context preset",
+      description: "Smallest useful set for scoped intent context.",
       scopes: leanScopes,
       categories: selectedCategories
     },
     {
       id: `explain-${explainableScopes.join("-")}`,
-      label: "Explainable preset",
-      description: "Adds evidence cards so users can see why Memact inferred something.",
+      label: "Evidence-backed preset",
+      description: "Adds evidence cards for intent hypotheses.",
       scopes: explainableScopes,
       categories: selectedCategories
     }
