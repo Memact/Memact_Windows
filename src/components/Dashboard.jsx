@@ -353,7 +353,6 @@ export function Dashboard({
         </section>
       ) : (
         <>
-          <p className="panel-external-label">Apps</p>
           <section id="app-panel" className="panel app-workspace">
             <p className="eyebrow">APPS</p>
             <div className="current-app-block">

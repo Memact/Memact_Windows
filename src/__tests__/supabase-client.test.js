@@ -11,7 +11,7 @@ test("getAuthRedirectUrl defaults to the current site origin", () => {
   globalThis.window = { location: { origin: "https://preview.memact.com" } }
 
   try {
-    assert.equal(getAuthRedirectUrl(), "https://preview.memact.com/Access")
+    assert.equal(getAuthRedirectUrl(), "https://preview.memact.com/Dashboard")
   } finally {
     if (previousWindow === undefined) {
       delete globalThis.window

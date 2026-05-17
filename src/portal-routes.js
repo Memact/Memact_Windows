@@ -1,6 +1,6 @@
 export const ROUTES = {
   home: "/",
-  access: "/Access",
+  access: "/Dashboard",
   account: "/Account",
   data: "/DataTransparency",
   help: "/Help",
@@ -9,8 +9,10 @@ export const ROUTES = {
 
 const LEGACY_ROUTES = new Map([
   ["/dashboard", ROUTES.access],
+  ["/Dashboard", ROUTES.access],
   ["/login", `${ROUTES.home}#sign-in`],
-  ["/access", ROUTES.home],
+  ["/access", ROUTES.access],
+  ["/Access", ROUTES.access],
   ["/account", ROUTES.home],
   ["/data", ROUTES.data],
   ["/transparency", ROUTES.data],

@@ -54,8 +54,8 @@ compact cards, rounded controls, and consistent button hierarchy.
 Authenticated dashboard:
 
 - mobile uses a compact top row with the logo and tabs kept close
-- desktop uses a fixed left rail with Access, Account, and Help
-- Access shows app registration, permissions, API keys, usage statistics, and the one-time key flow
+- desktop uses the same floating header pattern with Dashboard, Account, and Help
+- Dashboard shows app registration, permissions, API keys, usage statistics, and the one-time key flow
 - `/DataTransparency` is a consent-companion page, not a dashboard tab
 - Account shows identity, email/password actions, and account metrics
 - Help uses short FAQs for users and developers
@@ -118,7 +118,7 @@ Create `.env`:
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-public-anon-key
 # Optional override for non-standard deploy domains. Defaults to the current origin.
-# VITE_AUTH_REDIRECT_URL=http://localhost:3000/Access
+# VITE_AUTH_REDIRECT_URL=http://localhost:3000/Dashboard
 # Optional override for generated app integration snippets.
 # VITE_MEMACT_DEVELOPER_API_URL=https://api.memact.com/v1/access/verify
 ```
@@ -135,11 +135,11 @@ Before the portal works, apply the access-layer SQL migration from:
 In Supabase Auth URL settings, allow the local and production callback URLs:
 
 ```text
-http://localhost:3000/Access
+http://localhost:3000/Dashboard
 http://localhost:3000/DataTransparency
 http://localhost:3000/Account
 http://localhost:3000/connect
-https://www.memact.com/Access
+https://www.memact.com/Dashboard
 https://www.memact.com/DataTransparency
 https://www.memact.com/Account
 https://www.memact.com/connect
@@ -154,7 +154,7 @@ For Render, set:
 ```text
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-public-anon-key
-# Optional: VITE_AUTH_REDIRECT_URL=https://www.memact.com/Access
+# Optional: VITE_AUTH_REDIRECT_URL=https://www.memact.com/Dashboard
 # Optional: VITE_MEMACT_DEVELOPER_API_URL=https://api.memact.com/v1/access/verify
 ```
 

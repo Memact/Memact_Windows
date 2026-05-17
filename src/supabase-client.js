@@ -27,7 +27,7 @@ export function requireSupabase() {
   return supabase
 }
 
-export function getAuthRedirectUrl(path = "/Access") {
+export function getAuthRedirectUrl(path = "/Dashboard") {
   if (typeof window !== "undefined" && window.location?.origin) {
     return new URL(path, window.location.origin).toString()
   }
