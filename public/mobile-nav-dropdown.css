@@ -16,54 +16,32 @@
     transition: border-color 140ms ease, background 140ms ease !important;
   }
 
-  .page:not(.page-auth) .tabs:hover:not(:has(.nav-dropdown-chevron:hover)),
-  .page:not(.page-auth) .tabs:focus-within:not(:has(.nav-dropdown-chevron:hover)) {
+  .page:not(.page-auth) .tabs:hover,
+  .page:not(.page-auth) .tabs:focus-within {
     border-color: var(--border-strong) !important;
     background: var(--surface-2) !important;
   }
 
-  .page:not(.page-auth) .tabs::before,
-  .page:not(.page-auth) .tabs::after {
-    content: "" !important;
+  .page:not(.page-auth) .nav-dropdown-chevron {
     position: absolute !important;
-    z-index: 3 !important;
+    top: 6px !important;
+    right: 6px !important;
+    z-index: 4 !important;
+    width: 30px !important;
+    height: 30px !important;
     pointer-events: none !important;
+    transition: transform 140ms ease !important;
   }
 
-  .page:not(.page-auth) .tabs::before {
-    top: 7px !important;
-    right: 7px !important;
-    width: 28px !important;
-    height: 28px !important;
-    border: 1px solid var(--border-strong) !important;
-    border-radius: 999px !important;
-    background: var(--surface-2) !important;
-  }
-
-  .page:not(.page-auth) .tabs::after {
-    top: 19px !important;
-    right: 17px !important;
-    width: 8px !important;
-    height: 8px !important;
-    border-right: 2px solid var(--muted) !important;
-    border-bottom: 2px solid var(--muted) !important;
-    transform: rotate(45deg) !important;
-    transition: transform 140ms ease, border-color 140ms ease !important;
-  }
-
-  .page:not(.page-auth) .tabs:hover::before,
-  .page:not(.page-auth) .tabs:focus-within::before {
+  .page:not(.page-auth) .tabs:hover .nav-dropdown-chevron,
+  .page:not(.page-auth) .tabs:focus-within .nav-dropdown-chevron {
     border-color: rgba(255, 255, 255, 0.36) !important;
+    color: var(--text) !important;
     background: var(--surface-3) !important;
   }
 
-  .page:not(.page-auth) .tabs:hover::after,
-  .page:not(.page-auth) .tabs:focus-within::after {
-    border-color: var(--text) !important;
-  }
-
-  .page:not(.page-auth) .tabs:focus-within::after {
-    transform: translateY(2px) rotate(225deg) !important;
+  .page:not(.page-auth) .tabs:focus-within .nav-dropdown-chevron {
+    transform: rotate(180deg) !important;
   }
 
   .page:not(.page-auth) .tab {

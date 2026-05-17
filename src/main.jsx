@@ -1234,6 +1234,7 @@ function App() {
             <button type="button" className={currentPage === "access" ? "tab is-active" : "tab"} onClick={() => navigateToPage("access")}>Dashboard</button>
             <button type="button" className={currentPage === "account" ? "tab is-active" : "tab"} onClick={() => navigateToPage("account")}>Account</button>
             <button type="button" className={currentPage === "help" ? "tab is-active" : "tab"} onClick={() => navigateToPage("help")}>Help</button>
+            <span className="faq-chevron revoked-chevron nav-dropdown-chevron" aria-hidden="true">v</span>
           </nav>
         ) : null}
         {showStatusPill ? <span className="status-pill" aria-live="polite">{status}</span> : null}
