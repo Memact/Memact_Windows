@@ -352,7 +352,7 @@ details[open]:hover:not(:has(.faq-chevron:hover)) {
   gap: 12px;
   position: fixed;
   z-index: 80;
-  top: calc(var(--topbar-height) + var(--topbar-gap));
+  top: calc(var(--topbar-height) + (var(--topbar-gap) * 2));
   left: 50%;
   width: min(680px, calc(100% - 28px));
   margin: 0;
@@ -426,7 +426,7 @@ button.error-dismiss:focus-visible:not(:disabled) {
   gap: 12px;
   position: fixed;
   z-index: 79;
-  top: calc(var(--topbar-height) + var(--topbar-gap));
+  top: calc(var(--topbar-height) + (var(--topbar-gap) * 2));
   left: 50%;
   width: min(680px, calc(100% - 28px));
   margin: 0;
@@ -436,7 +436,7 @@ button.error-dismiss:focus-visible:not(:disabled) {
 }
 
 .success-overlay.has-error {
-  top: calc(var(--topbar-height) + var(--topbar-gap) + 68px);
+  top: calc(var(--topbar-height) + (var(--topbar-gap) * 2) + 68px);
 }
 
 .inline-retry {
