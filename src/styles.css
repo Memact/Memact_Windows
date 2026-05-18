@@ -235,7 +235,7 @@ summary:focus-visible {
   display: block;
   width: 132px;
   height: auto;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 .tabs {
@@ -1924,6 +1924,10 @@ input:-webkit-autofill:focus {
 
   .logo-link {
     justify-self: start;
+  }
+
+  .page:not(.page-auth) .logo-link {
+    padding-left: 3px;
   }
 
   .page-auth .topbar {
