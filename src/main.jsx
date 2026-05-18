@@ -16,6 +16,7 @@ import { Chevron } from "./components/Chevron.jsx"
 import { DataTransparencyPage } from "./components/DataTransparencyPage.jsx"
 import { Dashboard } from "./components/Dashboard.jsx"
 import { HelpPanel } from "./components/HelpPanel.jsx"
+import { LearnPanel } from "./components/LearnPanel.jsx"
 import { Landing } from "./components/Landing.jsx"
 import { refreshDashboard, useDashboardState } from "./hooks/useDashboardState.js"
 import { isConnectPage, isProtectedPage, normalizePortalPath, pageFromLocation, routeForPage } from "./portal-routes.js"
@@ -1202,11 +1203,13 @@ function App() {
   }
 
   const scopes = policy?.scopes || {}
-  const showAuth = !session && !authChecking
+  const isPublicLearnPage = currentPage === "learn"
+  const showAuth = !session && !authChecking && !isPublicLearnPage
   const isInitialLoading = authChecking && !session
   const statusNeedsAttention = /missing|failed|offline/i.test(status)
   const showStatusPill = !showAuth && Boolean(error || statusNeedsAttention)
   const showExternalBackHeader = session && (currentPage === "connect" || currentPage === "data")
+  const showLearnBackHeader = isPublicLearnPage
   const activePortalTabLabel = currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : "Dashboard"
   const [isMobileTabsOpen, setIsMobileTabsOpen] = useState(false)
   const tabsRef = useRef(null)
@@ -1259,6 +1262,12 @@ function App() {
               <Chevron className="back-chevron" />
             </button>
           </nav>
+        ) : showLearnBackHeader ? (
+          <nav className="nav back-nav" aria-label="Return navigation">
+            <button type="button" className="button back-button" onClick={() => navigateToPage("home")} aria-label="Back to Memact">
+              <Chevron className="back-chevron" />
+            </button>
+          </nav>
         ) : session ? (
           <nav ref={tabsRef} className={isMobileTabsOpen ? "tabs is-open" : "tabs"} aria-label="Memact portal tabs">
             <button type="button" className="tab tab-current" onClick={toggleMobileTabs} aria-expanded={isMobileTabsOpen}>{activePortalTabLabel}</button>
@@ -1291,7 +1300,11 @@ function App() {
         </div>
       ) : null}
 
-      {currentPage === "help" ? (
+      {currentPage === "learn" ? (
+        <section className="dashboard">
+          <LearnPanel />
+        </section>
+      ) : currentPage === "help" ? (
         <section className="dashboard">
           <HelpPanel />
         </section>
@@ -1430,7 +1443,7 @@ function App() {
           onClearPendingVerification={clearPendingVerification}
           onClearPendingSignInVerification={clearPendingSignInVerification}
           onGithubLogin={handleGithubLogin}
-          onLearnMore={() => { window.location.href = "/learn/" }}
+          onLearnMore={() => { navigateToPage("learn") }}
         />
       )}
     </main>

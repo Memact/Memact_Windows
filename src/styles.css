@@ -702,40 +702,7 @@ p { margin-top: 0; }
 }
 
 .dashboard-tutorial-panel {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-1);
   overflow: hidden;
-}
-
-.dashboard-tutorial-panel summary {
-  list-style: none;
-}
-
-.dashboard-tutorial-panel summary::-webkit-details-marker { display: none; }
-
-.dashboard-tutorial-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: center;
-  gap: 16px;
-  min-height: 64px;
-  padding: 10px 16px;
-  cursor: pointer;
-}
-
-.dashboard-tutorial-summary > span {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.dashboard-tutorial-summary strong {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .dashboard-tutorial-steps {

@@ -4,6 +4,7 @@ export const ROUTES = {
   account: "/Account",
   data: "/DataTransparency",
   help: "/Help",
+  learn: "/learn",
   connect: "/connect"
 }
 
@@ -14,6 +15,7 @@ const LEGACY_ROUTES = new Map([
   ["/access", ROUTES.access],
   ["/Access", ROUTES.access],
   ["/account", ROUTES.home],
+  ["/learn/", ROUTES.learn],
   ["/data", ROUTES.data],
   ["/transparency", ROUTES.data],
   ["/data-transparency", ROUTES.data]
@@ -29,6 +31,7 @@ export function pageFromLocation(locationLike = globalThis.window?.location) {
   if (pathname === ROUTES.account) return "account"
   if (pathname === ROUTES.data) return "data"
   if (pathname === ROUTES.help) return "help"
+  if (pathname === ROUTES.learn) return "learn"
   if (pathname === ROUTES.connect) return "connect"
   return "home"
 }

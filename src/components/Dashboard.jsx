@@ -136,13 +136,13 @@ export function Dashboard({
             <h2>{`Welcome${displayName ? `, ${displayName}` : ""}!`}</h2>
           </div>
           <details
-            className="dashboard-tutorial-panel"
+            className="dashboard-tutorial-panel settings-details"
             open={showDashboardTutorial}
             onToggle={(event) => setShowDashboardTutorial(event.currentTarget.open)}
           >
-            <summary className="dashboard-tutorial-summary">
-              <span>
-                <span className="eyebrow">Quick tutorial</span>
+            <summary className="settings-trigger">
+              <span className="settings-trigger-text">
+                <span className="account-change-label">Quick tutorial</span>
                 <strong>Set up app access</strong>
               </span>
               <Chevron />
