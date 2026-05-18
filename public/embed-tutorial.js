@@ -24,7 +24,7 @@ function enhanceEmbedCode() {
     const chevron = document.createElement("span")
     chevron.className = "faq-chevron embed-chevron"
     chevron.setAttribute("aria-hidden", "true")
-    chevron.textContent = "v"
+    chevron.innerHTML = '<svg class="chevron-icon" viewBox="0 0 24 24" focusable="false"><path d="M6.5 9.25L12 14.75L17.5 9.25"></path></svg>'
 
     summary.append(title, subtitle, chevron)
 
@@ -142,7 +142,7 @@ function titleForStep(title, index) {
 function describeStep(title, index) {
   const descriptions = [
     "Put this URL behind your own Connect Memact button. It opens the approval screen for this app.",
-    "Put this URL next to consent. It explains the evidence fields, context objects, summaries, graph packets, retention, and revocation path for this app.",
+    "Put this URL next to consent. It explains the evidence fields, intent/context objects, summaries, retention, and revocation path for this app.",
     "After the user approves, Memact redirects back to your app with a connection id.",
     "Keep the private mka_ Memact API key in server environment config. Your backend sends it to Memact before requesting context or intent predictions; do not put it in browser code.",
     "Use the verified scopes and categories as the boundary for what your app does next."

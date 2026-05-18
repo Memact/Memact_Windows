@@ -23,7 +23,25 @@ This repo owns the public site and the authenticated portal for:
 - plain-English help
 - public pages that explain Memact for search and sharing
 
-Website does not capture activity, infer intent, or read memory graphs directly. It talks to the Supabase-backed access layer that stores apps, permissions, consent records, and API key metadata.
+## What This Repo Owns
+
+- Public Website pages and SEO assets.
+- Authenticated dashboard, account settings, and app registration UI.
+- Consent and Data Transparency screens.
+- API key creation/testing/revocation UI.
+- Help, Learn, and generated integration tutorial copy.
+
+## What This Repo Does Not Own
+
+- Browser/page capture.
+- Semantic inference.
+- Schema formation.
+- Intent prediction rules.
+- Durable memory storage or retrieval.
+- Access-layer RPC names or database internals.
+
+Website talks to the Access layer that stores apps, permissions, consent records,
+and API key metadata.
 
 ## Product Definition
 
@@ -31,10 +49,10 @@ Memact turns approved digital activity into useful context and intent signals:
 what users appear to be doing, what patterns matter, and what each app is
 allowed to use.
 
-Website is not the memory engine. It is the account, app, permission, consent, and API key console.
+Website is the account, app, permission, consent, Data Transparency, docs, and API key console. It is not part of the core understanding pipeline.
 
 ```text
-Website -> access layer -> scoped API key -> user consent -> evidence/filtering -> intent and context
+Website manages -> Access gates -> Capture records -> Inference understands -> Schema groups -> Intent predicts -> Memory stores -> Apps consume
 ```
 
 Apps use Memact for permissioned intent and context. Each app must stay inside
@@ -192,12 +210,12 @@ If Blueprint setup fails, use the direct Dashboard path in
 - API keys are shown once and should be stored server-side by the app developer.
 - App names are unique per account.
 - Deleting an app revokes its active API keys and permissions.
-- Data Transparency must stay available alongside the consent flow so users can review the evidence fields, context objects, graph packet use, retention, and revocation path before approval.
+- Data Transparency must stay available alongside the consent flow so users can review the evidence fields, context objects, intent use, retention, and revocation path before approval.
 - Revoked keys remain visible as history.
 - Scopes and saved permissions are required before apps can use Memact.
 - Activity categories are required before apps can use Memact.
 - The consent flow creates user-specific permission for one app.
-- Graph read access is separate from evidence use and schema writes.
+- Graph read access is separate from evidence use, intent prediction, and schema writes.
 - Redirect URLs and developer URLs must use `http://` or `https://`; unsafe schemes are rejected or ignored.
 - Supabase is the primary access backend. The local HTTP client is only a development fallback.
 
@@ -218,7 +236,7 @@ The tutorial is intentionally split into numbered steps instead of one giant cod
 2. Link the matching Data Transparency page
 3. Read the connection id after approval
 4. Verify access before doing work
-5. Use only approved access
+5. Request only approved intent or context
 ```
 
 Normal app flow:
@@ -230,13 +248,15 @@ developer creates app
 -> Memact shows consent plus Data Transparency for that app
 -> user approves or cancels
 -> approved apps receive a connection_id
--> app verifies API key + connection_id + scopes before requesting context
+-> app verifies API key + connection_id + scopes before requesting intent or context
 ```
 
 API keys identify the app. `connection_id` identifies the specific user consent.
 Verification must pass both.
 
-Memact verifies the API key before an app can use approved evidence, schema, graph, or memory permissions. Customer apps verify through the Memact HTTP endpoint; they do not call Supabase RPCs or configure Supabase keys.
+Memact verifies the API key before an app can use approved evidence, schema,
+intent, graph, or memory permissions. Customer apps verify through the Memact
+HTTP endpoint; they do not call Supabase RPCs or configure Supabase keys.
 
 ```http
 POST https://api.memact.com/v1/access/verify
@@ -252,7 +272,8 @@ Content-Type: application/json
 }
 ```
 
-The app receives only the context, memory, and graph access allowed by the scopes and activity categories the user approved for that app.
+The app receives only the intent, context, memory, and graph access allowed by
+the scopes and activity categories the user approved for that app.
 
 For developer docs and generated coding guidance, keep the integration
 explanation practical:
@@ -263,8 +284,8 @@ explanation practical:
 3. Link /DataTransparency with the same app_id, scopes, categories, and redirect_uri.
 4. Store the returned connection_id for that user.
 5. Keep the raw Memact API key on the server.
-6. Verify api_key + connection_id + required_scopes + activity_categories through the Memact verification endpoint before requesting context.
-7. Use only the approved context, memory, scopes, and categories returned by verification.
+6. Verify api_key + connection_id + required_scopes + activity_categories through the Memact verification endpoint before requesting intent or context.
+7. Use only the approved intent, context, memory, scopes, and categories returned by verification.
 ```
 
 Do not describe repository names as separate brands. Memact is the brand; access,
@@ -279,7 +300,7 @@ Data Transparency is not an owner-dashboard tab. It is a user-facing companion
 page for the app asking for consent. It must explain:
 
 - evidence fields that may inform understanding, such as URLs, page titles, selected text, transcripts, timestamps, or evidence snippets
-- memory objects and graph packets, such as summaries, evidence cards, inferred schema packets, nodes, edges, aggregates, or patterns
+- intent and memory objects, such as hypotheses, summaries, evidence cards, inferred schema packets, nodes, edges, aggregates, or patterns
 - why the app needs that context
 - retention and deletion expectations
 - how the user can revoke consent or stop future access
@@ -297,8 +318,8 @@ Website includes a Help tab for non-technical users. It explains:
 - how consent works
 - what activity categories are
 - how developers should embed the API safely
-- what schema packets are
-- what apps should not do
+- what intent hypotheses and schema packets are
+- how apps should keep permission boundaries
 
 The Help tab should stay short. Long docs belong in `/learn/` or future docs,
 not inside the dashboard.

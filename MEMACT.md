@@ -13,10 +13,27 @@ This repo is the Memact web portal for sign in, app registration, permissions, A
 ## System position
 
 ```text
-Website -> Access -> Capture -> Inference -> Schema -> Memory -> Intent
+Website manages -> Access gates -> Capture records -> Inference understands -> Schema groups -> Intent predicts -> Memory stores -> Apps consume
 ```
 
 Website is not the capture engine, inference engine, memory store, or intent engine. It is the user and developer-facing control surface for permissioned access.
+
+## What this repo owns
+
+- sign-in and account settings
+- app registration and API key management
+- permission, category, consent, and Data Transparency UI
+- Connect App flow
+- help, tutorial, public Learn page, and SEO metadata
+
+## What this repo does not own
+
+- permission verification internals
+- browser/page capture
+- semantic inference
+- schema grouping
+- intent prediction rules
+- memory storage or retrieval
 
 ## Copy rules
 
