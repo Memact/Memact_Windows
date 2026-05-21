@@ -1430,6 +1430,20 @@ input:-webkit-autofill:focus {
   gap: 8px;
 }
 
+.dashboard-surface-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-surface-grid .metric-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 128px;
+  padding: 16px;
+}
+
 .metric-card span {
   display: block;
   margin-bottom: 4px;
@@ -1437,7 +1451,23 @@ input:-webkit-autofill:focus {
   font-size: 13px;
 }
 
-.metric-card strong { font-size: 22px; }
+.metric-card strong {
+  display: block;
+  font-size: 22px;
+  line-height: 1.12;
+}
+
+.metric-card small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .dashboard-surface-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .password-strength {
   display: grid;

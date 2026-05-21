@@ -424,16 +424,16 @@ export function Dashboard({
             ) : null}
           </section>
 
-          <section className="panel dashboard-surface-grid" aria-label="Memact surfaces">
+          <section className="panel dashboard-surface-grid" aria-label="Memact dashboard surfaces">
             <div className="metric-card">
               <span>Capture Sources</span>
               <strong>Optional</strong>
-              <small>Apps can send signals after permission. The browser extension is optional, and nothing automatic happens without integration, import, sharing, or the extension.</small>
+              <small>Apps can send signals after permission. The browser extension is optional.</small>
             </div>
             <div className="metric-card">
               <span>Features</span>
-              <strong>3 ready paths</strong>
-              <small>Memory Wiki, Cognitive Load, and Research Map are the first Memact feature surfaces.</small>
+              <strong>3 Studio features</strong>
+              <small>Memory Wiki, Cognitive Load, and Research Map match the current Studio registry.</small>
             </div>
             <div className="metric-card">
               <span>Schemas</span>
