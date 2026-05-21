@@ -550,9 +550,9 @@ function buildBrowserUnderstandingStrategy(scopes = [], categories = []) {
   const categorySet = new Set(categories)
   const outputs = []
   if (categorySet.has("web:news")) outputs.push("main claim", "supporting evidence", "reading intent")
-  if (categorySet.has("web:social")) outputs.push("topics followed", "creator affinity", "community context")
-  if (categorySet.has("dev:code")) outputs.push("implementation goal", "bug context", "next debugging step")
-  if (!outputs.length) outputs.push("user goal", "topic", "context", "next action")
+  if (categorySet.has("web:social")) outputs.push("topics followed", "creator affinity", "community signal")
+  if (categorySet.has("dev:code")) outputs.push("implementation goal", "bug detail", "next debugging step")
+  if (!outputs.length) outputs.push("user goal", "topic", "memory", "next action")
 
   return {
     id: `browser_understanding_${categories.join("_").replace(/[^a-z0-9_]/gi, "") || "default"}`,

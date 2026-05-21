@@ -433,7 +433,7 @@ export function Dashboard({
             <div className="metric-card">
               <span>Features</span>
               <strong>3 ready paths</strong>
-              <small>User Context Wiki, Cognitive Load, and Research Map are the first Memact feature surfaces.</small>
+              <small>Memory Wiki, Cognitive Load, and Research Map are the first Memact feature surfaces.</small>
             </div>
             <div className="metric-card">
               <span>Schemas</span>

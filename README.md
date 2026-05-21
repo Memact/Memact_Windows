@@ -2,7 +2,7 @@
 
 Website is the public site and portal for Memact.
 
-Memact helps apps personalize better using what users choose to share.
+Memact is a playground where apps personalize based on what users choose to share.
 
 ```text
 Personalization made better
@@ -47,6 +47,9 @@ Website manages
 
 Website is the console for users and developers. It is not part of the core
 capture, inference, schema, memory, or feature pipeline.
+
+The Website should explain Memact simply for users, then give developers exact
+SDK/API steps. It should not pretend to run backend work in the browser.
 
 ## Current UI
 

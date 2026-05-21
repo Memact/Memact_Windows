@@ -127,7 +127,7 @@ export function Landing({
                 <span>Personalization made better</span>
                 <span className="tagline-with">with Memact</span>
               </h1>
-              <p>Memact helps apps personalize better using what users choose to share.</p>
+              <p>A playground where apps personalize based on what users choose to share.</p>
               {showAuth ? (
                 <div className="landing-actions">
                   <a className="scroll-to-auth" href="/#sign-up" onClick={(event) => handleAuthScroll(event, "sign-up")}>Get started</a>

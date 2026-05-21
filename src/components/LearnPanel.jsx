@@ -6,7 +6,7 @@ import { Chevron } from "./Chevron.jsx"
 const BASIC_FAQS = [
   {
     question: "What is Memact?",
-    answer: "Memact helps apps personalize better using what users choose to share."
+    answer: "Memact is a playground where apps personalize based on what users choose to share."
   },
   {
     question: "How does it work?",
@@ -40,7 +40,7 @@ const DEVELOPER_FAQS = [
 const FEATURE_FAQS = [
   {
     question: "What are Memact features?",
-    answer: "Features are tools built on Memact memory, such as User Memory Wiki, Cognitive Load, and Research Map."
+    answer: "Features are tools built inside Memact, such as Memory Wiki, Cognitive Load, and Research Map."
   },
   {
     question: "Is the extension required?",
@@ -68,7 +68,7 @@ export function LearnPanel() {
       <div>
         <p className="eyebrow">Learn More</p>
         <h2>Personalization made better with Memact</h2>
-        <p className="muted">Memact helps apps personalize better using what users choose to share.</p>
+        <p className="muted">A playground where apps personalize based on what users choose to share.</p>
       </div>
 
       <div className="faq-section">

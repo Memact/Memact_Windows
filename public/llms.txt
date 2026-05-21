@@ -1,6 +1,6 @@
 # Memact
 
-Memact helps apps personalize better using what users choose to share.
+Memact is a playground where apps personalize based on what users choose to share.
 
 ## Key Pages
 
