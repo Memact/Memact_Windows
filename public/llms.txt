@@ -1,6 +1,6 @@
 # Memact
 
-Memact helps apps personalize better with context users control.
+Memact helps apps personalize better using what users choose to share.
 
 ## Key Pages
 
@@ -51,4 +51,4 @@ const result = await memact.runFeature("user-context-wiki", {
 
 ## Short Definition
 
-Memact lets apps remember useful context with user permission, instead of each app guessing silently.
+Memact lets apps remember useful details with user permission, instead of each app guessing silently.

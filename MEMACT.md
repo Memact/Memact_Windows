@@ -5,7 +5,7 @@ Personalization made better
 with Memact
 ```
 
-Memact helps apps personalize better with context users control.
+Memact helps apps personalize better using what users choose to share.
 
 Website is the Memact portal for users, developers, and apps. It handles sign in,
 app registration, permissions, API keys, consent, Data Transparency, help, SEO,
@@ -25,7 +25,7 @@ store, or feature runtime. It is the control surface.
 Use simple public copy:
 
 - "Personalization made better with Memact."
-- "Memact helps apps personalize better with context users control."
+- "Memact helps apps personalize better using what users choose to share."
 - "You choose what an app can use."
 - "Data Transparency shows what an app can use, what Memact creates, and what the app may receive."
 

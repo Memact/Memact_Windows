@@ -6,11 +6,11 @@ import { Chevron } from "./Chevron.jsx"
 const BASIC_FAQS = [
   {
     question: "What is Memact?",
-    answer: "Memact helps apps personalize better with context users control."
+    answer: "Memact helps apps personalize better using what users choose to share."
   },
   {
     question: "How does it work?",
-    answer: "Apps ask to connect, send useful signals after permission, and receive only the context or feature output their access allows."
+    answer: "Apps ask to connect, send useful signals after permission, and receive only the memory or feature output their access allows."
   },
   {
     question: "What can I review?",
@@ -33,14 +33,14 @@ const DEVELOPER_FAQS = [
   },
   {
     question: "What are schema packets?",
-    answer: "Schema packets are technical context structures Memact features can use. They belong in developer docs and advanced surfaces, not basic user consent copy."
+    answer: "Schema packets are technical memory structures Memact features can use. They belong in developer docs and advanced surfaces, not basic user consent copy."
   }
 ]
 
 const FEATURE_FAQS = [
   {
     question: "What are Memact features?",
-    answer: "Features are tools built on Memact context, such as User Context Wiki, Cognitive Load, and Research Map."
+    answer: "Features are tools built on Memact memory, such as User Memory Wiki, Cognitive Load, and Research Map."
   },
   {
     question: "Is the extension required?",
@@ -68,7 +68,7 @@ export function LearnPanel() {
       <div>
         <p className="eyebrow">Learn More</p>
         <h2>Personalization made better with Memact</h2>
-        <p className="muted">Memact helps apps personalize better with context users control.</p>
+        <p className="muted">Memact helps apps personalize better using what users choose to share.</p>
       </div>
 
       <div className="faq-section">

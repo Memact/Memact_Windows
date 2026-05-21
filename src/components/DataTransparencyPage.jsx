@@ -128,7 +128,7 @@ export function DataTransparencyPage({
           <h3>Context created from those signals</h3>
           <DisclosureList
             items={createdContext}
-            empty="Memact may create useful context from the categories you allow. The app should explain what kind of context it wants."
+            empty="Memact may create useful memory from the categories you allow. The app should explain what it wants to use."
           />
         </section>
 
@@ -137,13 +137,13 @@ export function DataTransparencyPage({
           <h3>Why it wants access</h3>
           <DisclosureList
             items={dataUses}
-            empty={app?.description || "This app has not provided a plain-language reason for the Memact context it wants yet."}
+            empty={app?.description || "This app has not provided a plain-language reason for what it wants yet."}
           />
         </section>
 
         <section className="permission-list transparency-card">
           <p className="eyebrow">What this app may use</p>
-          <h3>Features and allowed context</h3>
+          <h3>Features and allowed memory</h3>
           <DisclosureList
             items={allowedFeatures}
             empty="No specific feature list was provided. The allowed permissions and categories above still limit what the app can use."

@@ -6,11 +6,11 @@ import { Chevron } from "./Chevron.jsx"
 const BASIC_FAQS = [
   {
     question: "What is Memact?",
-    answer: "Memact helps apps personalize better with context users control."
+    answer: "Memact helps apps personalize better using what users choose to share."
   },
   {
     question: "Why would an app use Memact?",
-    answer: "An app can send useful signals to Memact and get better context back later, with your permission."
+    answer: "An app can send useful signals to Memact and get better personalization back later, with your permission."
   },
   {
     question: "Does an app get all my data?",
@@ -18,7 +18,7 @@ const BASIC_FAQS = [
   },
   {
     question: "What does Memact store?",
-    answer: "Memact stores useful context created from app signals, user choices, and optional capture sources."
+    answer: "Memact stores useful memory created from app signals, user choices, and optional capture sources."
   },
   {
     question: "Is the browser extension required?",
@@ -48,7 +48,7 @@ const DEVELOPER_FAQS = [
   },
   {
     question: "What are features?",
-    answer: "Features are tools built on Memact context, like a user-context wiki, research map, or cognitive load estimate."
+    answer: "Features are tools built on Memact memory, like a user memory wiki, research map, or cognitive load estimate."
   }
 ]
 

@@ -64,12 +64,19 @@
 }
 
 .page-auth .hero-copy h1.locked-tagline {
-  max-width: 760px !important;
+  max-width: 800px !important;
+  text-wrap: balance;
 }
 
 .locked-tagline span {
   display: block;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+.locked-tagline .tagline-with {
+  font-size: 0.82em;
+  line-height: 1.02;
+  letter-spacing: -0.052em;
 }
 
 .page-auth .hero-copy p:not(.eyebrow) {
@@ -149,7 +156,7 @@
   }
 
   .page-auth .hero-copy h1.locked-tagline {
-    max-width: 420px !important;
+    max-width: 430px !important;
   }
 
   .page-auth .hero-copy p:not(.eyebrow) {

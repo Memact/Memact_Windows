@@ -2,7 +2,7 @@
 
 Website is the public site and portal for Memact.
 
-Memact helps apps personalize better with context users control.
+Memact helps apps personalize better using what users choose to share.
 
 ```text
 Personalization made better
