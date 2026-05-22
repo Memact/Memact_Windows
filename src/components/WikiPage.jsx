@@ -1,6 +1,6 @@
 import React, { useRef } from "react"
 
-export function DataTransparencyPage({
+export function WikiPage({
   app,
   categories,
   scopes,
@@ -38,17 +38,17 @@ export function DataTransparencyPage({
   }
 
   return (
-    <section className="panel transparency-panel">
-      <div className="transparency-hero">
+    <section className="panel transparency-panel wiki-panel">
+      <div className="transparency-hero wiki-hero">
         <div>
-          <p className="eyebrow">Data transparency</p>
-          <h2>Control what {appName} can use.</h2>
-          <p className="muted">See what this app can use, what Memact creates, and what the app may receive back.</p>
+          <p className="eyebrow">Wiki</p>
+          <h2>{app?.id ? `${appName}'s Memact Wiki` : "Your Memact Wiki"}</h2>
+          <p className="muted">A private user wiki made from what you allow. Apps can add to it, Memact can organize it, and you can change or remove access.</p>
         </div>
       </div>
 
       <div className="app-identity connect-identity">
-        <span className="app-avatar" aria-hidden="true">{appName.slice(0, 1).toUpperCase()}</span>
+        <span className="app-avatar" aria-hidden="true"><span /></span>
         <div>
           <strong>{appName}</strong>
           {app?.developer_url ? (
@@ -60,8 +60,8 @@ export function DataTransparencyPage({
       <section className="permission-list transparency-controls-panel">
         <div className="transparency-control-head">
           <div>
-            <p className="eyebrow">Your controls</p>
-            <h3>Choose what is allowed before consent</h3>
+            <p className="eyebrow">Controls</p>
+            <h3>Choose what this app can use</h3>
           </div>
           <div className="transparency-summary" aria-label="Transparency summary">
             <span><strong>{safeRequestedScopes.length}</strong> Scopes</span>
@@ -69,11 +69,11 @@ export function DataTransparencyPage({
           </div>
         </div>
         {!hasEnoughSelection ? (
-          <p className="notice" role="status">Select at least one permission and one activity category before returning to consent.</p>
+          <p className="notice" role="status">Select at least one permission and one activity type before returning to consent.</p>
         ) : null}
         <div className="transparency-choice-grid">
           <div className="transparency-choice-group">
-            <p className="app-list-label">Allowed permissions</p>
+            <p className="app-list-label">Allowed actions</p>
             <div className="transparency-control-list">
               {scopeOptions.map((scope) => (
                 <label className="transparency-control" key={scope}>
@@ -88,7 +88,7 @@ export function DataTransparencyPage({
                   </span>
                 </label>
               ))}
-              {!scopeOptions.length ? <p className="muted">No permissions were attached to this transparency link.</p> : null}
+              {!scopeOptions.length ? <p className="muted">No actions were attached to this Wiki link.</p> : null}
             </div>
           </div>
           <div className="transparency-choice-group">
@@ -107,7 +107,7 @@ export function DataTransparencyPage({
                   </span>
                 </label>
               ))}
-              {!categoryOptions.length ? <p className="muted">No activity categories were attached to this transparency link.</p> : null}
+              {!categoryOptions.length ? <p className="muted">No activity types were attached to this Wiki link.</p> : null}
             </div>
           </div>
         </div>
@@ -115,25 +115,25 @@ export function DataTransparencyPage({
 
       <div className="transparency-grid">
         <section className="permission-list transparency-card">
-          <p className="eyebrow">What this app can send</p>
-          <h3>Signals and activity fields</h3>
+          <p className="eyebrow">App can add</p>
+          <h3>What this app can send</h3>
           <DisclosureList
             items={capturedData}
-            empty="This app has not listed exact fields yet. It should disclose fields such as URLs, page titles, selected text, transcripts, snippets, or timestamps."
+            empty="This app has not listed exact fields yet. It should explain what it sends, such as article titles, URLs, reading time, or timestamps."
           />
         </section>
 
         <section className="permission-list transparency-card">
-          <p className="eyebrow">What Memact may create</p>
-          <h3>Context created from those signals</h3>
+          <p className="eyebrow">Wiki may contain</p>
+          <h3>What Memact may create</h3>
           <DisclosureList
             items={createdContext}
-            empty="Memact may create useful memory from the categories you allow. The app should explain what it wants to use."
+            empty="Memact may create useful memory from what you allow. The app should explain what it wants to use."
           />
         </section>
 
         <section className="permission-list transparency-card">
-          <p className="eyebrow">Why the app wants it</p>
+          <p className="eyebrow">Why</p>
           <h3>Why it wants access</h3>
           <DisclosureList
             items={dataUses}
@@ -142,23 +142,23 @@ export function DataTransparencyPage({
         </section>
 
         <section className="permission-list transparency-card">
-          <p className="eyebrow">What this app may use</p>
-          <h3>Features and allowed memory</h3>
+          <p className="eyebrow">Features</p>
+          <h3>What this app may use</h3>
           <DisclosureList
             items={allowedFeatures}
-            empty="No specific feature list was provided. Article apps may request features such as Adaptive Article Overview only inside the permissions and categories above."
+            empty="No feature list was provided. Article apps may use Adaptive Article Overview only inside what you allow above."
           />
         </section>
 
         <section className="permission-list transparency-card">
-          <p className="eyebrow">How long access lasts</p>
-          <h3>How long it keeps data</h3>
+          <p className="eyebrow">Access</p>
+          <h3>How long access lasts</h3>
           <p className="muted">{retention}</p>
         </section>
 
         <section className="permission-list transparency-card">
-          <p className="eyebrow">Stop future access</p>
-          <h3>How to stop future access</h3>
+          <p className="eyebrow">Disconnect</p>
+          <h3>Stop future access</h3>
           <p className="muted">{revocation} Removing app access stops future Memact access for this app.</p>
         </section>
       </div>
@@ -167,6 +167,12 @@ export function DataTransparencyPage({
         <button type="button" onClick={onBackToConsent}>Back to consent</button>
         <button type="button" className="ghost" onClick={onManageConsent}>Open dashboard</button>
       </div>
+
+      <section className="permission-list wiki-share-card">
+        <p className="eyebrow">Sharing</p>
+        <h3>Private unless you create a share link.</h3>
+        <p className="muted">Your Wiki is not public by default. A username-based share link should only exist after you create one yourself.</p>
+      </section>
     </section>
   )
 }

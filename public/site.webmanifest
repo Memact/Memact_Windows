@@ -1,7 +1,7 @@
 {
   "name": "Memact",
   "short_name": "Memact",
-  "description": "Manage Memact app permissions, consent, API keys, and data transparency.",
+  "description": "Manage Memact app permissions, consent, API keys, Wiki, and Playground features.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

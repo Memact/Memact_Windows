@@ -5,16 +5,16 @@ Memact is a playground where apps personalize based on what users choose to shar
 ## Key Pages
 
 - https://www.memact.com/
-- https://www.memact.com/learn/
+- https://www.memact.com/Learn
 - https://www.memact.com/connect
-- https://www.memact.com/DataTransparency
+- https://www.memact.com/Wiki
 - https://github.com/Memact
 - https://github.com/Memact/Website
 
 ## User Concepts
 
 - Users choose whether an app connects.
-- Data Transparency shows what an app can use, what Memact creates from it, and what the app may receive.
+- Wiki shows what an app can use, what Memact creates from it, and what the app may receive.
 - Users can review access and disconnect apps later.
 - The browser extension is optional. Apps can use Memact through SDK/API integration without it.
 
@@ -22,7 +22,7 @@ Memact is a playground where apps personalize based on what users choose to shar
 
 - Register an app.
 - Keep the Memact API key on the server.
-- Add a Connect Memact flow and Data Transparency link.
+- Add a Connect Memact flow and Wiki link.
 - Store the returned `connection_id` for the signed-in user.
 - Use the SDK/API to send capture events and run Memact features after access is approved.
 - Scopes and categories are permission boundaries.
@@ -44,8 +44,10 @@ await memact.capture({
   payload: { title, url }
 });
 
-const result = await memact.runFeature("user-context-wiki", {
-  schema_packets: []
+const result = await memact.runFeature("adaptive-article-overview", {
+  article,
+  reading_memory,
+  recent_events: []
 });
 ```
 

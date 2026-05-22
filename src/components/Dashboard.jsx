@@ -424,67 +424,6 @@ export function Dashboard({
             ) : null}
           </section>
 
-          <section className="panel dashboard-playground-panel" aria-label="Memact playground surfaces">
-            <div className="section-copy">
-              <p className="eyebrow">Playground</p>
-              <h2>What apps can use with Memact.</h2>
-              <p className="muted">Capture, schemas, and Studio features stay behind the permissions you save for each app.</p>
-            </div>
-            <div className="playground-table" role="table" aria-label="Memact playground capabilities">
-              <div className="playground-table-head" role="row">
-                <span role="columnheader">Layer</span>
-                <span role="columnheader">What apps can use</span>
-                <span role="columnheader">Boundary</span>
-              </div>
-              <div className="playground-row">
-                <span>Capture sources</span>
-                <strong>Apps, imports, or extension</strong>
-                <small>Apps can send signals after permission. The browser extension is optional and lives in the Capture repo.</small>
-              </div>
-              <div className="playground-row">
-                <span>Studio features</span>
-                <strong>Memory Wiki, Cognitive Load, Research Map, Adaptive Article Overview</strong>
-                <small>These match the current Studio feature registry and can run through Access when the runtime is connected.</small>
-              </div>
-              <div className="playground-row">
-                <span>Schemas</span>
-                <strong>Developer review</strong>
-                <small>Schema packets, categories, and source trails are shown for technical review when connected.</small>
-              </div>
-            </div>
-            <section className="adaptive-feature-card" aria-label="Adaptive Article Overview demo">
-              <div className="section-copy">
-                <p className="eyebrow">Studio feature · local example</p>
-                <h3>Adaptive Article Overview</h3>
-                <p className="muted">A real Studio feature that helps article apps create summaries based on approved reading memory.</p>
-              </div>
-              <div className="adaptive-flow">
-                <span>Article app sends approved reading activity.</span>
-                <span>Memact turns it into reading memory.</span>
-                <span>Studio chooses the overview style.</span>
-                <span>User can see connected apps and remove access.</span>
-              </div>
-              <div className="adaptive-demo-grid">
-                <div className="mini-row">
-                  <strong>Example memory</strong>
-                  <small>Average read time, scroll depth, preferred topics, skipped topics, article length, and summary style.</small>
-                </div>
-                <div className="mini-row">
-                  <strong>Schema</strong>
-                  <small>reading_preferences with preferred_topics, skipped_topics, article_length_preference, summary_style_preference, and engagement_pattern.</small>
-                </div>
-                <div className="mini-row">
-                  <strong>Feature output</strong>
-                  <small>summary_style, overview, why_this_style, follow_up_suggestions, confidence, and signals_used.</small>
-                </div>
-                <div className="mini-row">
-                  <strong>Data Transparency</strong>
-                  <small>Connected app: article app. Allowed activity: article reading behavior. Memory created: reading preference memory. Feature used: Adaptive Article Overview. User control: remove access.</small>
-                </div>
-              </div>
-            </section>
-          </section>
-
           <div className="access-layout">
             <section id="permissions-panel" className="panel">
               <div className="section-head">
@@ -554,6 +493,17 @@ export function Dashboard({
               <div className="stack">
                 {selectedAppId ? (
                   <>
+                    {activeKeys.length ? (
+                      <section className="wiki-link-card" aria-label="Wiki link">
+                        <div>
+                          <p className="eyebrow">Wiki link</p>
+                          <h3>Review this app's Wiki access.</h3>
+                          <p className="muted">Use this beside consent so users can see what the app can add and use.</p>
+                        </div>
+                        <a className="button wiki-link-button" href={buildPortalWikiUrl(selectedAppId, selectedScopes, selectedAppCategories, selectedApp?.redirect_urls?.[0] || selectedApp?.developer_url || "")}>Open Wiki link</a>
+                      </section>
+                    ) : null}
+
                     <section className="usage-overview" aria-label="Usage statistics">
                       <div className="usage-overview-head">
                         <p className="eyebrow">Usage statistics</p>
@@ -694,14 +644,14 @@ function buildEmbedCode(apiKey, scopes = [], categories = [], app = null) {
   const appId = app?.id || "app_id_from_memact_portal"
   const redirectUrl = app?.redirect_urls?.[0] || app?.developer_url || "https://your-app.example.com/memact/callback"
   const connectUrl = buildPortalConnectUrl(appId, scopes, categories, redirectUrl)
-  const dataTransparencyUrl = buildPortalDataTransparencyUrl(appId, scopes, categories, redirectUrl)
+  const wikiUrl = buildPortalWikiUrl(appId, scopes, categories, redirectUrl)
   return `import { createMemactClient } from "@memact/sdk";
 
 // 1. Add the Connect Memact button.
 const memactConnectUrl = "${connectUrl}";
 
-// 2. Add the Data Transparency link beside consent.
-const memactDataTransparencyUrl = "${dataTransparencyUrl}";
+// 2. Add the Wiki link beside consent.
+const memactWikiUrl = "${wikiUrl}";
 
 // 3. After approval, store the returned connection id on your server.
 const connectionId = "connection_id_from_connect_redirect";
@@ -728,8 +678,17 @@ await memact.capture({
   }
 });
 
-const result = await memact.runFeature("user-context-wiki", {
-  schema_packets: []
+const result = await memact.runFeature("adaptive-article-overview", {
+  article: {
+    title: "Example article",
+    excerpt: "A short article excerpt",
+    topic: "technology"
+  },
+  reading_memory: {
+    preferred_summary_style: "key_points",
+    preferred_topics: ["technology"]
+  },
+  recent_events: []
 });
 
 console.log(result);`
@@ -750,9 +709,9 @@ function buildPortalConnectUrl(appId, scopes = [], categories = [], redirectUrl 
   return url.toString()
 }
 
-function buildPortalDataTransparencyUrl(appId, scopes = [], categories = [], redirectUrl = "") {
+function buildPortalWikiUrl(appId, scopes = [], categories = [], redirectUrl = "") {
   const origin = typeof window !== "undefined" ? window.location.origin : "https://memact.com"
-  const url = new URL("/DataTransparency", origin)
+  const url = new URL("/Wiki", origin)
   url.searchParams.set("app_id", appId)
   if (scopes.length) url.searchParams.set("scopes", scopes.join(","))
   if (categories.length) url.searchParams.set("categories", categories.join(","))

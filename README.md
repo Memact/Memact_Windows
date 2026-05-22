@@ -16,7 +16,8 @@ with Memact
 - App registration.
 - API keys.
 - Consent screens.
-- Data Transparency.
+- Wiki.
+- Playground feature catalog.
 - Capture Sources UI.
 - Features/Studio UI.
 - Schemas UI.
@@ -58,8 +59,9 @@ compact cards, rounded controls, and consistent button hierarchy.
 
 Authenticated dashboard:
 
-- Dashboard shows apps, permissions, API keys, usage statistics, capture sources, features, and schemas.
-- `/DataTransparency` is a consent companion page, not a dashboard tab.
+- Dashboard shows apps, permissions, API keys, usage statistics, and Wiki links for active keys.
+- `/Playground` shows real Studio features that can be connected to an app API key.
+- `/Wiki` is the app-specific user wiki page. It is private unless a user explicitly creates a share link.
 - Account shows identity, email/password actions, invites, and account metrics.
 - Help uses short FAQs for users and developers.
 
@@ -71,7 +73,7 @@ does not help someone complete the task.
 The site includes crawlable public discovery assets:
 
 - `/`
-- `/learn/`
+- `/Learn`
 - `/robots.txt`
 - `/sitemap.xml`
 - `/llms.txt`
@@ -121,7 +123,7 @@ After creating an API key, Website shows:
 - a one-time API key
 - copy and test controls
 - a Connect Memact URL
-- a Data Transparency URL
+- a Wiki URL
 - a server-side SDK example
 
 Normal app flow:
@@ -130,7 +132,7 @@ Normal app flow:
 developer creates app
 -> chooses scopes and categories
 -> user clicks "Connect Memact" inside the third-party app
--> Memact shows consent plus Data Transparency for that app
+-> Memact shows consent plus the app's Wiki page
 -> user approves or cancels
 -> approved apps receive a connection_id
 -> app verifies API key + connection_id + scopes before sending events or running features
@@ -142,22 +144,22 @@ Verification must pass both.
 Customer apps should use the Memact SDK/API from their backend. They should not
 call Supabase RPCs or configure Supabase keys.
 
-## Consent and Data Transparency
+## Consent and Wiki
 
-The consent page must show what the app is asking to use and a Data Transparency
-link for the same app.
+The consent page must show what the app is asking to use and a Wiki link for
+the same app.
 
-Data Transparency explains:
+Wiki explains:
 
 - what the app can send
-- what Memact may create
+- what Memact may create or organize
 - why the app wants it
 - what features the app may use
 - how long access lasts
 - how the user can stop future access
 
-Categories and scopes are boundaries, not the full disclosure. If an app cannot
-describe what it uses, the consent flow is not ready.
+Categories and permissions are boundaries, not the full story. If an app cannot
+explain what it uses in plain language, the consent flow is not ready.
 
 ## License
 

@@ -38,15 +38,17 @@ export class HttpAccessClient {
   }
 
   async dashboard(session) {
-    const [apps, apiKeys, consents] = await Promise.all([
+    const [apps, apiKeys, consents, featureConnections] = await Promise.all([
       this.apps(session),
       this.apiKeys(session),
-      this.consents(session)
+      this.consents(session),
+      this.featureConnections(session)
     ])
     return {
       apps: apps.apps || [],
       api_keys: apiKeys.api_keys || [],
-      consents: consents.consents || []
+      consents: consents.consents || [],
+      feature_connections: featureConnections.feature_connections || []
     }
   }
 
@@ -72,6 +74,18 @@ export class HttpAccessClient {
 
   revokeApiKey(session, keyId) {
     return this.post("/v1/api-keys/revoke", { key_id: keyId }, session)
+  }
+
+  featureConnections(session) {
+    return this.get("/v1/feature-connections", session)
+  }
+
+  connectFeature(session, body) {
+    return this.post("/v1/feature-connections", body, session)
+  }
+
+  disconnectFeature(session, connectionId) {
+    return this.post("/v1/feature-connections/disconnect", { connection_id: connectionId }, session)
   }
 
   consents(session) {

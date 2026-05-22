@@ -5,6 +5,7 @@ export const initialDashboardState = {
   apps: [],
   apiKeys: [],
   consents: [],
+  featureConnections: [],
   status: "Checking Dashboard.",
   error: "",
   canRetryDashboard: false
@@ -25,6 +26,7 @@ export function dashboardReducer(state, action) {
         apps: action.apps,
         apiKeys: action.apiKeys,
         consents: action.consents,
+        featureConnections: action.featureConnections || [],
         error: "",
         status: "Dashboard synced.",
         canRetryDashboard: false
@@ -43,6 +45,7 @@ export function dashboardReducer(state, action) {
         apps: [],
         apiKeys: [],
         consents: [],
+        featureConnections: [],
         error: "",
         canRetryDashboard: false
       }
@@ -63,8 +66,8 @@ export function useDashboardState() {
     setCanRetryDashboard(canRetryDashboard) {
       dispatch({ type: "retry", canRetryDashboard })
     },
-    sync({ user, apps, apiKeys, consents }) {
-      dispatch({ type: "synced", user, apps, apiKeys, consents })
+    sync({ user, apps, apiKeys, consents, featureConnections }) {
+      dispatch({ type: "synced", user, apps, apiKeys, consents, featureConnections })
     },
     fail({ message, status }) {
       dispatch({ type: "failed", message, status })
@@ -88,7 +91,8 @@ export async function refreshDashboard(client, session, actions, getAccessStatus
       user: me.user,
       apps: dashboard.apps || [],
       apiKeys: dashboard.api_keys || [],
-      consents: dashboard.consents || []
+      consents: dashboard.consents || [],
+      featureConnections: dashboard.feature_connections || []
     })
   } catch (error) {
     actions.fail(getAccessStatus(error))

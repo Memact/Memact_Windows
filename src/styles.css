@@ -1928,6 +1928,203 @@ input:-webkit-autofill:focus {
   background: var(--surface-2);
 }
 
+.consent-choice-card,
+.transparency-control {
+  min-height: 76px;
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.connect-grid .permission-list,
+.transparency-controls-panel {
+  gap: 14px;
+}
+
+.transparency-controls-panel {
+  padding: 16px;
+}
+
+.transparency-choice-grid {
+  align-items: start;
+}
+
+.app-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: transparent;
+}
+
+.app-avatar > span {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.82) 0 2px, transparent 3px),
+    radial-gradient(circle at 30% 36%, rgba(255, 255, 255, 0.52) 0 2px, transparent 3px),
+    radial-gradient(circle at 70% 36%, rgba(255, 255, 255, 0.52) 0 2px, transparent 3px),
+    radial-gradient(circle at 34% 70%, rgba(255, 255, 255, 0.42) 0 2px, transparent 3px),
+    radial-gradient(circle at 66% 70%, rgba(255, 255, 255, 0.42) 0 2px, transparent 3px),
+    rgba(255, 255, 255, 0.06);
+}
+
+.wiki-link-card,
+.playground-hero-panel,
+.playground-store-panel,
+.feature-store-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.wiki-link-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+}
+
+.wiki-link-card h3 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.wiki-link-button {
+  width: auto;
+  white-space: nowrap;
+}
+
+.playground-page {
+  display: grid;
+  gap: 16px;
+}
+
+.playground-hero-panel {
+  display: grid;
+  gap: 4px;
+}
+
+.playground-store-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.playground-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.35fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.playground-search input,
+.playground-app-select select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text);
+  background: var(--surface-1);
+  font: inherit;
+  outline: none;
+}
+
+.playground-search input:focus,
+.playground-app-select select:focus {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+
+.feature-store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 12px;
+}
+
+.feature-store-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.feature-card-top {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) max-content;
+  align-items: start;
+  gap: 12px;
+}
+
+.feature-card-top h3,
+.feature-card-body p {
+  margin: 0;
+}
+
+.feature-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.feature-icon-lines {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background:
+    linear-gradient(#fff, #fff) 0 4px / 24px 3px no-repeat,
+    linear-gradient(rgba(255,255,255,0.66), rgba(255,255,255,0.66)) 0 11px / 18px 3px no-repeat,
+    linear-gradient(rgba(255,255,255,0.48), rgba(255,255,255,0.48)) 0 18px / 22px 3px no-repeat;
+}
+
+.feature-card-body {
+  display: grid;
+  gap: 12px;
+}
+
+.feature-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.feature-meta-grid > div {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.feature-meta-grid span,
+.feature-connected {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.feature-meta-grid strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.feature-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
 /* Desktop console shell */
 @media (min-width: 901px) {
   .page:not(.page-auth) {
@@ -2006,6 +2203,32 @@ input:-webkit-autofill:focus {
 
 /* Mobile */
 @media (max-width: 900px) {
+  .playground-toolbar,
+  .feature-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wiki-link-card,
+  .feature-card-actions {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .feature-card-top {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .feature-card-top .badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .feature-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
   .page {
     --page-inline: 16px;
     --topbar-height: 76px;

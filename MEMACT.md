@@ -8,7 +8,7 @@ with Memact
 Memact is a playground where apps personalize based on what users choose to share.
 
 Website is the Memact portal for users, developers, and apps. It handles sign in,
-app registration, permissions, API keys, consent, Data Transparency, help, SEO,
+app registration, permissions, API keys, consent, Wiki, Playground, help, SEO,
 and public learn content.
 
 ## System Position
@@ -27,7 +27,7 @@ Use simple public copy:
 - "Personalization made better with Memact."
 - "Memact is a playground where apps personalize based on what users choose to share."
 - "You choose what an app can use."
-- "Data Transparency shows what an app can use, what Memact creates, and what the app may receive."
+- "Wiki shows what an app can add, what Memact may create, and what the app may receive."
 
 Keep technical terms in developer sections:
 

@@ -131,7 +131,7 @@ function splitEmbedSteps(code) {
 function titleForStep(title, index) {
   const titles = [
     "Add the Connect Memact button",
-    "Add the Data Transparency link",
+    "Add the Wiki link",
     "Read the connection id after approval",
     "Verify access before doing work",
     "Use only approved access"
@@ -142,7 +142,7 @@ function titleForStep(title, index) {
 function describeStep(title, index) {
   const descriptions = [
     "Put this URL behind your own Connect Memact button. It opens the approval screen for this app.",
-    "Put this URL next to consent. It explains what the app can send, what Memact may create, summaries, retention, and revocation for this app.",
+    "Put this URL next to consent. It lets the user see what the app can add, what Memact may create, and how to stop future access.",
     "After the user approves, Memact redirects back to your app with a connection id.",
     "Keep the private mka_ Memact API key in server environment config. Your backend sends it to Memact before sending events or running features; do not put it in browser code.",
     "Use the verified scopes and categories as the boundary for what your app does next."

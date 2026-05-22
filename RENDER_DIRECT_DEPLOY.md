@@ -28,7 +28,7 @@ Never put a Supabase service role key, GitHub OAuth secret, or database secret i
 
 ## 3. Rewrite Rule
 
-Add one rewrite rule so direct visits to `/Access`, `/Account`, `/Help`, `/connect`, and `/DataTransparency` all load the React app:
+Add one rewrite rule so direct visits to `/Dashboard`, `/Playground`, `/Wiki`, `/Account`, `/Help`, `/connect`, and old `/DataTransparency` links all load the React app:
 
 ```text
 Action: Rewrite
@@ -86,19 +86,19 @@ In Supabase Auth URL settings, allow these local and production URLs:
 http://localhost:3000/Access
 http://localhost:3000/Account
 http://localhost:3000/connect
-http://localhost:3000/DataTransparency
+http://localhost:3000/Wiki
 https://memact.com/Access
 https://memact.com/Account
 https://memact.com/connect
-https://memact.com/DataTransparency
+https://memact.com/Wiki
 https://www.memact.com/Access
 https://www.memact.com/Account
 https://www.memact.com/connect
-https://www.memact.com/DataTransparency
+https://www.memact.com/Wiki
 https://www.memact.com/**
 ```
 
-If Render gives the Website a `.onrender.com` URL for previews, add the matching `/Access`, `/Account`, `/connect`, and `/DataTransparency` URLs too.
+If Render gives the Website a `.onrender.com` URL for previews, add the matching `/Dashboard`, `/Playground`, `/Wiki`, `/Account`, and `/connect` URLs too.
 
 For GitHub OAuth, the GitHub callback URL belongs to Supabase:
 
@@ -131,4 +131,4 @@ Expected behavior:
 - `/` loads the public landing page.
 - `/Access` asks the user to sign in, then opens the app and API key console.
 - `/connect?...` opens the consent flow for a real app request.
-- `/DataTransparency?...` only shows meaningful content when the URL includes a real app consent context.
+- `/Wiki?...` only shows app-specific content when the URL includes a real app consent context.

@@ -14,7 +14,7 @@
 }
 
 .embed-code summary::after {
-  content: "Starter snippet for consent, data transparency, and access verification.";
+  content: "Starter snippet for consent, Wiki, and access verification.";
   color: var(--soft) !important;
   font-size: 12px !important;
   font-weight: 600 !important;

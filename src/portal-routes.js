@@ -1,24 +1,33 @@
 export const ROUTES = {
   home: "/",
   access: "/Dashboard",
+  playground: "/Playground",
+  wiki: "/Wiki",
   account: "/Account",
-  data: "/DataTransparency",
+  data: "/Wiki",
   help: "/Help",
-  learn: "/learn",
+  learn: "/Learn",
   connect: "/connect"
 }
 
 const LEGACY_ROUTES = new Map([
   ["/dashboard", ROUTES.access],
   ["/Dashboard", ROUTES.access],
+  ["/playground", ROUTES.playground],
+  ["/Playground", ROUTES.playground],
+  ["/wiki", ROUTES.wiki],
+  ["/Wiki", ROUTES.wiki],
   ["/login", `${ROUTES.home}#sign-in`],
   ["/access", ROUTES.access],
   ["/Access", ROUTES.access],
   ["/account", ROUTES.home],
+  ["/learn", ROUTES.learn],
   ["/learn/", ROUTES.learn],
-  ["/data", ROUTES.data],
-  ["/transparency", ROUTES.data],
-  ["/data-transparency", ROUTES.data]
+  ["/Learn/", ROUTES.learn],
+  ["/data", ROUTES.wiki],
+  ["/DataTransparency", ROUTES.wiki],
+  ["/transparency", ROUTES.wiki],
+  ["/data-transparency", ROUTES.wiki]
 ])
 
 export function normalizePortalPath(pathname = "/") {
@@ -28,8 +37,9 @@ export function normalizePortalPath(pathname = "/") {
 export function pageFromLocation(locationLike = globalThis.window?.location) {
   const pathname = normalizePortalPath(locationLike?.pathname || ROUTES.home)
   if (pathname === ROUTES.access) return "access"
+  if (pathname === ROUTES.playground) return "playground"
+  if (pathname === ROUTES.wiki) return "wiki"
   if (pathname === ROUTES.account) return "account"
-  if (pathname === ROUTES.data) return "data"
   if (pathname === ROUTES.help) return "help"
   if (pathname === ROUTES.learn) return "learn"
   if (pathname === ROUTES.connect) return "connect"
@@ -41,7 +51,7 @@ export function routeForPage(page = "home") {
 }
 
 export function isProtectedPage(page = "home") {
-  return page === "access" || page === "account" || page === "data" || page === "connect"
+  return page === "access" || page === "playground" || page === "wiki" || page === "account" || page === "data" || page === "connect"
 }
 
 export function isConnectPage(page = "home") {

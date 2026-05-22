@@ -140,7 +140,7 @@ export class SupabaseAccessClient {
     const user = userData?.user
     if (!user?.id) throw new AccessApiError(401, "Please sign in again.", "invalid_session")
 
-    const [appsResult, keysResult, consentsResult] = await Promise.all([
+    const [appsResult, keysResult, consentsResult, featureConnectionsResult] = await Promise.all([
       this.supabase
         .from("memact_apps")
         .select("id, owner_user_id, name, slug, description, developer_url, redirect_urls, default_scopes, default_categories, created_at, revoked_at")
@@ -155,18 +155,111 @@ export class SupabaseAccessClient {
       this.supabase
         .from("memact_consents")
         .select("id, user_id, app_id, scopes, categories, created_at, updated_at, revoked_at")
-        .eq("user_id", user.id)
+        .eq("user_id", user.id),
+      this.supabase
+        .from("memact_feature_connections")
+        .select("id, owner_user_id, app_id, api_key_id, feature_id, created_at, disconnected_at")
+        .eq("owner_user_id", user.id)
+        .order("created_at", { ascending: false })
     ])
 
     if (appsResult.error) throw new AccessApiError(500, appsResult.error.message || "Could not load apps.", "apps_lookup_failed", appsResult.error)
     if (keysResult.error) throw new AccessApiError(500, keysResult.error.message || "Could not load API keys.", "api_keys_lookup_failed", keysResult.error)
     if (consentsResult.error) throw new AccessApiError(500, consentsResult.error.message || "Could not load permissions.", "consents_lookup_failed", consentsResult.error)
+    const featureConnections = featureConnectionsResult.error && isMissingTableError(featureConnectionsResult.error)
+      ? []
+      : featureConnectionsResult.data || []
+    if (featureConnectionsResult.error && !isMissingTableError(featureConnectionsResult.error)) {
+      throw new AccessApiError(500, featureConnectionsResult.error.message || "Could not load feature connections.", "feature_connections_lookup_failed", featureConnectionsResult.error)
+    }
 
     return {
       apps: appsResult.data || [],
       api_keys: keysResult.data || [],
-      consents: consentsResult.data || []
+      consents: consentsResult.data || [],
+      feature_connections: featureConnections
     }
+  }
+
+  async featureConnections() {
+    const dashboard = await this.dashboard()
+    return { feature_connections: dashboard.feature_connections || [] }
+  }
+
+  async connectFeature(_session, body = {}) {
+    const { data: userData, error: userError } = await this.supabase.auth.getUser()
+    if (userError) throw mapSupabaseRpcError(userError)
+    const user = userData?.user
+    if (!user?.id) throw new AccessApiError(401, "Please sign in again.", "invalid_session")
+
+    const cleanFeatureId = String(body?.feature_id || "").trim()
+    if (!cleanFeatureId) throw new AccessApiError(400, "Feature id is required.", "missing_feature_id")
+
+    const { data: app, error: appError } = await this.supabase
+      .from("memact_apps")
+      .select("id")
+      .eq("id", body?.app_id)
+      .eq("owner_user_id", user.id)
+      .is("revoked_at", null)
+      .maybeSingle()
+    if (appError) throw new AccessApiError(500, appError.message || "Could not check the selected app.", "app_lookup_failed", appError)
+    if (!app?.id) throw new AccessApiError(404, "App not found.", "app_not_found")
+
+    const keyQuery = this.supabase
+      .from("memact_api_keys")
+      .select("id")
+      .eq("app_id", app.id)
+      .eq("owner_user_id", user.id)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+    if (body?.api_key_id) keyQuery.eq("id", body.api_key_id)
+    const { data: keys, error: keyError } = await keyQuery
+    if (keyError) throw new AccessApiError(500, keyError.message || "Could not check API keys.", "api_key_lookup_failed", keyError)
+    const apiKey = keys?.[0]
+    if (!apiKey?.id) throw new AccessApiError(400, "Create an API key before using this feature.", "api_key_required")
+
+    const { data: existing, error: existingError } = await this.supabase
+      .from("memact_feature_connections")
+      .select("id, owner_user_id, app_id, api_key_id, feature_id, created_at, disconnected_at")
+      .eq("owner_user_id", user.id)
+      .eq("app_id", app.id)
+      .eq("api_key_id", apiKey.id)
+      .eq("feature_id", cleanFeatureId)
+      .is("disconnected_at", null)
+      .maybeSingle()
+    if (existingError) throw new AccessApiError(500, existingError.message || "Could not check feature connections.", "feature_connection_lookup_failed", existingError)
+    if (existing?.id) return { feature_connection: existing }
+
+    const { data: created, error: createError } = await this.supabase
+      .from("memact_feature_connections")
+      .insert({
+        owner_user_id: user.id,
+        app_id: app.id,
+        api_key_id: apiKey.id,
+        feature_id: cleanFeatureId
+      })
+      .select("id, owner_user_id, app_id, api_key_id, feature_id, created_at, disconnected_at")
+      .single()
+    if (createError) throw new AccessApiError(500, createError.message || "Could not connect the feature.", "feature_connection_failed", createError)
+    return { feature_connection: created }
+  }
+
+  async disconnectFeature(_session, connectionId) {
+    const { data: userData, error: userError } = await this.supabase.auth.getUser()
+    if (userError) throw mapSupabaseRpcError(userError)
+    const user = userData?.user
+    if (!user?.id) throw new AccessApiError(401, "Please sign in again.", "invalid_session")
+
+    const { data, error } = await this.supabase
+      .from("memact_feature_connections")
+      .update({ disconnected_at: new Date().toISOString() })
+      .eq("id", connectionId)
+      .eq("owner_user_id", user.id)
+      .select("id, owner_user_id, app_id, api_key_id, feature_id, created_at, disconnected_at")
+      .single()
+    if (error) throw new AccessApiError(500, error.message || "Could not disconnect the feature.", "feature_disconnect_failed", error)
+    return { feature_connection: data }
   }
 
   async createApiKeyFallback(body) {
@@ -527,6 +620,11 @@ function isMigrationOrSchemaError(error) {
     error.code === "legacy_connect_app_rpc" ||
     error.code === "rpc_failed"
   )
+}
+
+function isMissingTableError(error) {
+  const raw = `${error?.message || ""} ${error?.code || ""}`
+  return /memact_feature_connections|does not exist|PGRST205|42P01/i.test(raw)
 }
 
 function filterKnownValues(values, allowedValues) {

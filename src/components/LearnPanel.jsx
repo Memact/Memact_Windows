@@ -40,7 +40,7 @@ const DEVELOPER_FAQS = [
 const FEATURE_FAQS = [
   {
     question: "What are Memact features?",
-    answer: "Features are tools built inside Memact, such as Memory Wiki, Cognitive Load, and Research Map."
+    answer: "Features are tools built inside Memact. Adaptive Article Overview is the first real feature in Playground."
   },
   {
     question: "Is the extension required?",

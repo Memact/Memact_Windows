@@ -13,11 +13,12 @@ import { hasDuplicateAppName } from "./app-name.js"
 import { defaultCategoriesForPolicy, defaultScopesForPolicy, normalizeSelectedCategories, normalizeSelectedScopes, permissionSuggestionForCategories } from "./access-policy.js"
 import { ConnectPage } from "./components/ConnectPage.jsx"
 import { Chevron } from "./components/Chevron.jsx"
-import { DataTransparencyPage } from "./components/DataTransparencyPage.jsx"
+import { WikiPage } from "./components/WikiPage.jsx"
 import { Dashboard } from "./components/Dashboard.jsx"
 import { HelpPanel } from "./components/HelpPanel.jsx"
 import { LearnPanel } from "./components/LearnPanel.jsx"
 import { Landing } from "./components/Landing.jsx"
+import { PlaygroundPanel } from "./components/PlaygroundPanel.jsx"
 import { refreshDashboard, useDashboardState } from "./hooks/useDashboardState.js"
 import { isConnectPage, isProtectedPage, normalizePortalPath, pageFromLocation, routeForPage } from "./portal-routes.js"
 import { getDisplayName, getUserEmail } from "./user-display.js"
@@ -109,7 +110,7 @@ function App() {
   const [displayNameSuccess, setDisplayNameSuccess] = useState("")
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteSuccess, setInviteSuccess] = useState("")
-  const { user, apps, apiKeys, consents, status, error, canRetryDashboard } = dashboard
+  const { user, apps, apiKeys, consents, featureConnections, status, error, canRetryDashboard } = dashboard
   const { setStatus, setError, setCanRetryDashboard } = dashboardActions
   const session = authSession?.access_token || ""
   const passwordState = useMemo(() => getPasswordState(setupPassword, setupPasswordConfirm), [setupPassword, setupPasswordConfirm])
@@ -330,7 +331,7 @@ function App() {
   }, [authFlow, needsPasswordSetup, session])
 
   useEffect(() => {
-    const tabName = currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : currentPage === "connect" ? "Connect" : currentPage === "data" ? "Data Transparency" : currentPage === "access" ? "Dashboard" : "Login"
+    const tabName = currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : currentPage === "connect" ? "Connect" : currentPage === "wiki" ? "Wiki" : currentPage === "playground" ? "Playground" : currentPage === "learn" ? "Learn" : currentPage === "access" ? "Dashboard" : "Login"
     document.title = `Memact | ${tabName}`
   }, [currentPage])
 
@@ -340,7 +341,7 @@ function App() {
   }, [authChecking, client, session])
 
   useEffect(() => {
-    if (!isConnectPage(currentPage) && currentPage !== "data") return
+    if (!isConnectPage(currentPage) && currentPage !== "wiki") return
     const request = parseConnectRequest()
     setConnectRequest(request)
     setActiveTab(currentPage)
@@ -354,6 +355,9 @@ function App() {
       .then((details) => {
         if (cancelled) return
         setConnectDetails(details)
+        if (currentPage === "connect") {
+          setConnectRequest((current) => ({ ...current, scopes: [], categories: [] }))
+        }
         setError("")
         setStatus("Review app connection.")
       })
@@ -1056,6 +1060,36 @@ function App() {
     }
   }
 
+  async function handleUseFeature(featureId, appId, apiKeyId) {
+    setError("")
+    try {
+      await client.connectFeature(session, {
+        feature_id: featureId,
+        app_id: appId,
+        api_key_id: apiKeyId
+      })
+      await refreshDashboard(client, session, dashboardActions, statusForAccessError)
+      setStatus("Feature connected.")
+    } catch (featureError) {
+      setError(featureError.message)
+      setStatus("Feature connection failed.")
+      scrollElementIntoView("error-message")
+    }
+  }
+
+  async function handleDisconnectFeature(connectionId) {
+    setError("")
+    try {
+      await client.disconnectFeature(session, connectionId)
+      await refreshDashboard(client, session, dashboardActions, statusForAccessError)
+      setStatus("Feature disconnected.")
+    } catch (featureError) {
+      setError(featureError.message)
+      setStatus("Feature disconnect failed.")
+      scrollElementIntoView("error-message")
+    }
+  }
+
   async function copyOneTimeKey() {
     if (!oneTimeKey) return
     try {
@@ -1149,7 +1183,7 @@ function App() {
     } : current)
   }
 
-  function navigateToDataTransparency(request) {
+  function navigateToWiki(request) {
     navigateWithConnectParams(routeForPage("data"), request)
   }
 
@@ -1208,9 +1242,9 @@ function App() {
   const isInitialLoading = authChecking && !session
   const statusNeedsAttention = /missing|failed|offline/i.test(status)
   const showStatusPill = !showAuth && Boolean(error || statusNeedsAttention)
-  const showExternalBackHeader = session && (currentPage === "connect" || currentPage === "data")
+  const showExternalBackHeader = session && currentPage === "connect"
   const showLearnBackHeader = isPublicLearnPage
-  const activePortalTabLabel = currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : "Dashboard"
+  const activePortalTabLabel = currentPage === "playground" ? "Playground" : currentPage === "wiki" ? "Wiki" : currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : "Dashboard"
   const [isMobileTabsOpen, setIsMobileTabsOpen] = useState(false)
   const tabsRef = useRef(null)
 
@@ -1273,6 +1307,8 @@ function App() {
             <button type="button" className="tab tab-current" onClick={toggleMobileTabs} aria-expanded={isMobileTabsOpen}>{activePortalTabLabel}</button>
             <div className="tabs-list">
               <button type="button" className={currentPage === "access" ? "tab is-active" : "tab"} onClick={() => handleTabSelect("access")}>Dashboard</button>
+              <button type="button" className={currentPage === "playground" ? "tab is-active" : "tab"} onClick={() => handleTabSelect("playground")}>Playground</button>
+              <button type="button" className={currentPage === "wiki" ? "tab is-active" : "tab"} onClick={() => handleTabSelect("wiki")}>Wiki</button>
               <button type="button" className={currentPage === "account" ? "tab is-active" : "tab"} onClick={() => handleTabSelect("account")}>Account</button>
               <button type="button" className={currentPage === "help" ? "tab is-active" : "tab"} onClick={() => handleTabSelect("help")}>Help</button>
             </div>
@@ -1314,13 +1350,23 @@ function App() {
           connectDetails={connectDetails}
           loading={connectLoading}
           notice={connectNotice}
+          selectedScopes={connectRequest?.scopes || []}
+          selectedCategories={connectRequest?.categories || []}
+          onToggleScope={(scope) => updateConnectSelection({
+            scopes: toggleListValue(connectRequest?.scopes || [], scope),
+            categories: connectRequest?.categories || []
+          })}
+          onToggleCategory={(category) => updateConnectSelection({
+            scopes: connectRequest?.scopes || [],
+            categories: toggleListValue(connectRequest?.categories || [], category)
+          })}
           onApprove={handleConnectApprove}
           onCancel={handleConnectCancel}
           onLearnMore={() => navigateToPage("help")}
-          onDataTransparency={() => navigateToDataTransparency(connectRequest)}
+          onWiki={() => navigateToWiki(connectRequest)}
         />
-      ) : session && currentPage === "data" && connectRequest?.app_id && connectDetails?.app ? (
-        <DataTransparencyPage
+      ) : session && currentPage === "wiki" && connectRequest?.app_id && connectDetails?.app ? (
+        <WikiPage
           app={connectDetails?.app}
           scopes={connectDetails?.scopes || scopes}
           categories={connectDetails?.activity_categories || policy?.activity_categories || {}}
@@ -1331,22 +1377,32 @@ function App() {
           onBackToConsent={() => navigateToConnect(connectRequest)}
           onManageConsent={() => navigateToPage("access")}
         />
-      ) : session && currentPage === "data" ? (
+      ) : session && currentPage === "wiki" ? (
         <section className="connect-shell">
           <article className="panel connect-card">
-            <p className="eyebrow">Data transparency</p>
-            <h1>{connectRequest?.app_id && connectLoading === "loading" ? "Loading app transparency." : "Open this from an app consent link."}</h1>
+            <p className="eyebrow">Wiki</p>
+            <h1>{connectRequest?.app_id && connectLoading === "loading" ? "Loading Wiki." : "Your Memact Wiki is private."}</h1>
             <p className="muted">
               {connectRequest?.app_id && connectLoading === "loading"
-                ? "Checking the Memact app request before showing any data disclosure."
-                : "This page only works with a real Memact app request. Use the Data Transparency link beside that app's consent screen."}
+                ? "Checking the Memact app request before showing app-specific Wiki details."
+                : "Connected apps can add to your Wiki only after consent. Sharing should happen only through a share link you create yourself."}
             </p>
             <div className="connect-actions">
               <button type="button" onClick={() => navigateToPage("access")}>Open dashboard</button>
-              <button type="button" className="ghost" onClick={() => navigateToPage("help")}>Learn more</button>
+              <button type="button" className="ghost" onClick={() => navigateToPage("help")}>Help</button>
             </div>
           </article>
         </section>
+      ) : session && currentPage === "playground" ? (
+        <PlaygroundPanel
+          apps={apps}
+          apiKeys={apiKeys}
+          featureConnections={featureConnections}
+          selectedAppId={selectedAppId}
+          setSelectedAppId={handleSelectApp}
+          onUseFeature={handleUseFeature}
+          onDisconnectFeature={handleDisconnectFeature}
+        />
       ) : session ? (
         <Dashboard
           activeTab={activeTab}
@@ -1660,6 +1716,12 @@ function parseListParam(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function toggleListValue(list = [], value) {
+  return list.includes(value)
+    ? list.filter((item) => item !== value)
+    : [...list, value]
 }
 
 function getAuthRedirectTarget() {

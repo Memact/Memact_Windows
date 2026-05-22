@@ -63,6 +63,18 @@ export class AccessClient {
     return this.impl.revokeApiKey(...args)
   }
 
+  featureConnections(...args) {
+    return this.impl.featureConnections(...args)
+  }
+
+  connectFeature(...args) {
+    return this.impl.connectFeature(...args)
+  }
+
+  disconnectFeature(...args) {
+    return this.impl.disconnectFeature(...args)
+  }
+
   consents(...args) {
     return this.impl.consents(...args)
   }

@@ -32,8 +32,20 @@ const CONTROL_FAQS = [
     answer: "Which apps are connected, what they can use, and whether they keep access."
   },
   {
-    question: "What is Data Transparency?",
-    answer: "It shows what an app can use, what Memact creates from it, and what the app may receive."
+    question: "What is Memact Wiki?",
+    answer: "It is the private user wiki created from apps, Memact, and user edits. Apps can use it only inside what you allow."
+  },
+  {
+    question: "Can I share my Wiki?",
+    answer: "Not by default. Your Wiki should stay private unless you create a username-based share link yourself."
+  },
+  {
+    question: "What is Playground?",
+    answer: "Playground is where Memact features live. Apps can use a feature with an API key, and you can disconnect it later."
+  },
+  {
+    question: "How does Adaptive Article Overview work?",
+    answer: "An article app can send allowed reading activity. Memact turns that into reading memory, then the feature chooses an overview style the user is more likely to read."
   }
 ]
 
@@ -96,7 +108,7 @@ export function HelpPanel() {
       <div>
         <p className="eyebrow">Help</p>
         <h2>Frequently asked questions</h2>
-        <p className="muted">Clear answers about apps, consent, data transparency, and developer setup.</p>
+        <p className="muted">Clear answers about apps, consent, Wiki, Playground, and developer setup.</p>
       </div>
 
       <div className="faq-section">
