@@ -36,6 +36,7 @@ export function normalizePortalPath(pathname = "/") {
 
 export function pageFromLocation(locationLike = globalThis.window?.location) {
   const pathname = normalizePortalPath(locationLike?.pathname || ROUTES.home)
+  if (/^\/u\/[^/]+\/?$/i.test(pathname)) return "publicWiki"
   if (pathname === ROUTES.access) return "access"
   if (pathname === ROUTES.playground) return "playground"
   if (pathname === ROUTES.wiki) return "wiki"
@@ -47,6 +48,7 @@ export function pageFromLocation(locationLike = globalThis.window?.location) {
 }
 
 export function routeForPage(page = "home") {
+  if (page === "publicWiki") return "/u"
   return ROUTES[page] || ROUTES.home
 }
 

@@ -44,12 +44,17 @@ export function PlaygroundPanel({
         <div className="playground-toolbar">
           <label className="playground-search">
             Search features
-            <input
-              value={query}
-              type="search"
-              placeholder="Search reading, shopping, research..."
-              onChange={(event) => setQuery(event.target.value)}
-            />
+            <span className="playground-search-field">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M10.5 17a6.5 6.5 0 1 1 0-13a6.5 6.5 0 0 1 0 13Zm5-1.5 4 4" />
+              </svg>
+              <input
+                value={query}
+                type="search"
+                placeholder="Search reading, shopping, research..."
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </span>
           </label>
           <label className="playground-app-select">
             Connect for app

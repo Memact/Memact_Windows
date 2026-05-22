@@ -14,7 +14,7 @@ and public learn content.
 ## System Position
 
 ```text
-Website manages -> Access checks -> Capture records -> Inference understands -> Schema organizes -> Memory stores -> Studio features run -> Apps and users use results
+Website manages -> Access checks -> Capture records -> Inference understands -> Schema organizes -> Memory stores -> Playground features run -> Apps and users use results
 ```
 
 Website is not the capture engine, inference engine, schema engine, memory

@@ -7,7 +7,7 @@ This feature helps article apps show better summaries based on approved reading 
 1. User allows an article app to use reading activity.
 2. App sends approved article activity.
 3. Memact turns it into reading memory.
-4. Studio feature chooses a summary style.
+4. Playground feature chooses a summary style.
 5. App shows a better article overview.
 6. User can see what is connected and remove access.
 
@@ -28,4 +28,4 @@ This feature helps article apps show better summaries based on approved reading 
 - deep dive
 - simple explainer
 
-This feature is not the whole product. It is one real Studio feature that proves how Memact personalization services can work.
+This feature is not the whole product. It is one real Playground feature that proves how Memact personalization services can work.

@@ -14,6 +14,7 @@ test("portal routes map clean URL pages", () => {
   assert.equal(pageFromLocation({ pathname: "/Help" }), "help")
   assert.equal(pageFromLocation({ pathname: "/Learn" }), "learn")
   assert.equal(pageFromLocation({ pathname: "/learn/" }), "learn")
+  assert.equal(pageFromLocation({ pathname: "/u/keepsloading" }), "publicWiki")
   assert.equal(pageFromLocation({ pathname: "/connect" }), "connect")
 })
 
@@ -30,6 +31,7 @@ test("legacy dashboard and login paths normalize to current routes", () => {
 test("route metadata keeps help public and account/wiki/playground protected", () => {
   assert.equal(isProtectedPage("help"), false)
   assert.equal(isProtectedPage("learn"), false)
+  assert.equal(isProtectedPage("publicWiki"), false)
   assert.equal(isProtectedPage("account"), true)
   assert.equal(isProtectedPage("wiki"), true)
   assert.equal(isProtectedPage("playground"), true)

@@ -19,7 +19,7 @@ with Memact
 - Wiki.
 - Playground feature catalog.
 - Capture Sources UI.
-- Features/Studio UI.
+- Playground feature UI.
 - Schemas UI.
 - Developer integration docs.
 - Help and Learn pages.
@@ -42,7 +42,7 @@ Website manages
 -> Inference understands
 -> Schema organizes
 -> Memory stores
--> Studio features run
+-> Playground features run
 -> Apps and users use results
 ```
 
@@ -60,7 +60,7 @@ compact cards, rounded controls, and consistent button hierarchy.
 Authenticated dashboard:
 
 - Dashboard shows apps, permissions, API keys, usage statistics, and Wiki links for active keys.
-- `/Playground` shows real Studio features that can be connected to an app API key.
+- `/Playground` shows real Playground features that can be connected to an app API key.
 - `/Wiki` is the app-specific user wiki page. It is private unless a user explicitly creates a share link.
 - Account shows identity, email/password actions, invites, and account metrics.
 - Help uses short FAQs for users and developers.

@@ -14,6 +14,7 @@ import { defaultCategoriesForPolicy, defaultScopesForPolicy, normalizeSelectedCa
 import { ConnectPage } from "./components/ConnectPage.jsx"
 import { Chevron } from "./components/Chevron.jsx"
 import { WikiPage } from "./components/WikiPage.jsx"
+import { PublicWikiPage } from "./components/PublicWikiPage.jsx"
 import { Dashboard } from "./components/Dashboard.jsx"
 import { HelpPanel } from "./components/HelpPanel.jsx"
 import { LearnPanel } from "./components/LearnPanel.jsx"
@@ -331,7 +332,7 @@ function App() {
   }, [authFlow, needsPasswordSetup, session])
 
   useEffect(() => {
-    const tabName = currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : currentPage === "connect" ? "Connect" : currentPage === "wiki" ? "Wiki" : currentPage === "playground" ? "Playground" : currentPage === "learn" ? "Learn" : currentPage === "access" ? "Dashboard" : "Login"
+    const tabName = currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : currentPage === "connect" ? "Connect" : currentPage === "wiki" || currentPage === "publicWiki" ? "Wiki" : currentPage === "playground" ? "Playground" : currentPage === "learn" ? "Learn" : currentPage === "access" ? "Dashboard" : "Login"
     document.title = `Memact | ${tabName}`
   }, [currentPage])
 
@@ -1238,12 +1239,13 @@ function App() {
 
   const scopes = policy?.scopes || {}
   const isPublicLearnPage = currentPage === "learn"
-  const showAuth = !session && !authChecking && !isPublicLearnPage
+  const isPublicWikiPage = currentPage === "publicWiki"
+  const showAuth = !session && !authChecking && !isPublicLearnPage && !isPublicWikiPage
   const isInitialLoading = authChecking && !session
   const statusNeedsAttention = /missing|failed|offline/i.test(status)
   const showStatusPill = !showAuth && Boolean(error || statusNeedsAttention)
   const showExternalBackHeader = session && currentPage === "connect"
-  const showLearnBackHeader = isPublicLearnPage
+  const showLearnBackHeader = isPublicLearnPage || isPublicWikiPage
   const activePortalTabLabel = currentPage === "playground" ? "Playground" : currentPage === "wiki" ? "Wiki" : currentPage === "account" ? "Account" : currentPage === "help" ? "Help" : "Dashboard"
   const [isMobileTabsOpen, setIsMobileTabsOpen] = useState(false)
   const tabsRef = useRef(null)
@@ -1298,7 +1300,7 @@ function App() {
           </nav>
         ) : showLearnBackHeader ? (
           <nav className="nav back-nav" aria-label="Return navigation">
-            <button type="button" className="button back-button" onClick={() => navigateToPage("home")} aria-label="Back to Memact">
+            <button type="button" className="button back-button" onClick={() => window.history.length > 1 ? window.history.back() : navigateToPage("home")} aria-label="Back to Memact">
               <Chevron className="back-chevron" />
             </button>
           </nav>
@@ -1336,7 +1338,9 @@ function App() {
         </div>
       ) : null}
 
-      {currentPage === "learn" ? (
+      {currentPage === "publicWiki" ? (
+        <PublicWikiPage username={getPublicWikiUsername()} />
+      ) : currentPage === "learn" ? (
         <section className="dashboard">
           <LearnPanel />
         </section>
@@ -1695,6 +1699,12 @@ function markPasswordReadyInBackground(auth, user, setAuthUser) {
 
 function isConnectPath() {
   return typeof window !== "undefined" && window.location.pathname === "/connect"
+}
+
+function getPublicWikiUsername() {
+  if (typeof window === "undefined") return ""
+  const match = window.location.pathname.match(/^\/u\/([^/]+)\/?$/i)
+  return match ? decodeURIComponent(match[1]) : ""
 }
 
 function parseConnectRequest() {

@@ -1048,7 +1048,8 @@ label {
 }
 
 input:not([type="checkbox"]),
-textarea {
+textarea,
+select {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -1104,7 +1105,8 @@ textarea {
 }
 
 input:not([type="checkbox"]):focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--border-strong);
   background: var(--surface-2);
 }
@@ -1307,7 +1309,7 @@ input:-webkit-autofill:focus {
   margin-top: 2px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--surface-1);
   overflow: hidden;
 }
 
@@ -1329,7 +1331,9 @@ input:-webkit-autofill:focus {
 
 .revoked-history summary::marker { content: ""; }
 
-.revoked-history:hover:not(:has(.faq-chevron:hover)) {
+.revoked-history:hover,
+.revoked-history:focus-within,
+.revoked-history[open] {
   border-color: var(--border-strong);
   background: var(--surface-2);
 }
@@ -1814,7 +1818,7 @@ input:-webkit-autofill:focus {
   display: grid;
   width: 100%;
   margin: 0 auto 24px;
-  gap: 16px;
+  gap: 14px;
 }
 
 .transparency-summary {
@@ -1861,8 +1865,8 @@ input:-webkit-autofill:focus {
 .transparency-controls-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.015);
+  padding: 16px;
+  background: var(--surface-1);
 }
 
 .transparency-control-head {
@@ -1892,11 +1896,11 @@ input:-webkit-autofill:focus {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
   align-items: start;
-  gap: 10px;
+  gap: 12px;
   min-height: 58px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px;
+  padding: 14px;
   color: var(--text);
   background: rgba(255, 255, 255, 0.025);
   font-size: 13px;
@@ -1985,6 +1989,9 @@ input:-webkit-autofill:focus {
   justify-content: space-between;
   gap: 14px;
   padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    var(--surface-1);
 }
 
 .wiki-link-card h3 {
@@ -2020,6 +2027,30 @@ input:-webkit-autofill:focus {
   align-items: end;
 }
 
+.playground-search-field {
+  position: relative;
+  display: block;
+}
+
+.playground-search-field svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  color: var(--soft);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.playground-search-field path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .playground-search input,
 .playground-app-select select {
   width: 100%;
@@ -2031,6 +2062,10 @@ input:-webkit-autofill:focus {
   background: var(--surface-1);
   font: inherit;
   outline: none;
+}
+
+.playground-search input {
+  padding-left: 40px;
 }
 
 .playground-search input:focus,
@@ -2049,6 +2084,133 @@ input:-webkit-autofill:focus {
   display: grid;
   gap: 14px;
   padding: 16px;
+}
+
+.wiki-panel {
+  gap: 14px;
+}
+
+.wiki-hero {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: start;
+}
+
+.wiki-add-button {
+  width: auto;
+  white-space: nowrap;
+}
+
+.wiki-add-form,
+.wiki-entry-panel {
+  background: var(--surface-1);
+}
+
+.wiki-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wiki-form-wide {
+  grid-column: 1 / -1;
+}
+
+.wiki-section-head,
+.wiki-entry-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wiki-entry-list {
+  display: grid;
+  gap: 10px;
+}
+
+.wiki-entry-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.wiki-entry-user {
+  border-color: rgba(200, 247, 212, 0.22);
+  background: rgba(200, 247, 212, 0.035);
+}
+
+.wiki-entry-app,
+.wiki-entry-memact,
+.wiki-entry-playground_feature {
+  background: var(--surface-1);
+}
+
+.wiki-proposal-card {
+  border-color: rgba(255, 220, 180, 0.22);
+  background: rgba(255, 220, 180, 0.035);
+}
+
+.wiki-entry-card h4 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.wiki-entry-card .muted {
+  margin: 6px 0 0;
+}
+
+.wiki-entry-meta,
+.wiki-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wiki-entry-meta span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wiki-entry-actions {
+  justify-content: flex-end;
+}
+
+.wiki-entry-actions select {
+  width: auto;
+  min-width: 150px;
+}
+
+.wiki-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wiki-signal-grid section {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.wiki-signal-grid strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.public-wiki-footer {
+  margin: 0;
 }
 
 .feature-card-top {
@@ -2204,14 +2366,29 @@ input:-webkit-autofill:focus {
 /* Mobile */
 @media (max-width: 900px) {
   .playground-toolbar,
-  .feature-meta-grid {
+  .feature-meta-grid,
+  .wiki-form-grid,
+  .wiki-signal-grid {
     grid-template-columns: 1fr;
   }
 
   .wiki-link-card,
-  .feature-card-actions {
+  .feature-card-actions,
+  .wiki-hero,
+  .wiki-section-head,
+  .wiki-entry-main {
     display: grid;
     align-items: stretch;
+  }
+
+  .wiki-entry-actions {
+    justify-content: stretch;
+  }
+
+  .wiki-entry-actions button,
+  .wiki-entry-actions select,
+  .wiki-add-button {
+    width: 100%;
   }
 
   .feature-card-top {
