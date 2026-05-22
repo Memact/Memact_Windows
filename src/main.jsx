@@ -1383,7 +1383,7 @@ function App() {
         />
       ) : session && currentPage === "wiki" ? (
         <section className="connect-shell">
-          <article className="panel connect-card">
+          <article className="panel connect-card wiki-private-card">
             <p className="eyebrow">Wiki</p>
             <h1>{connectRequest?.app_id && connectLoading === "loading" ? "Loading Wiki." : "Your Memact Wiki is private."}</h1>
             <p className="muted">

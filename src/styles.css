@@ -699,9 +699,12 @@ p { margin-top: 0; }
   display: grid;
   align-items: stretch;
   gap: 14px;
+  grid-template-columns: 1fr;
 }
 
 .dashboard-tutorial-panel {
+  width: 100%;
+  grid-column: 1 / -1;
   overflow: hidden;
 }
 
@@ -1748,6 +1751,20 @@ input:-webkit-autofill:focus {
   display: grid;
   gap: 16px;
   width: 100%;
+}
+
+.wiki-private-card {
+  gap: 18px;
+  padding: 30px;
+}
+
+.wiki-private-card h1,
+.wiki-private-card .muted {
+  margin: 0;
+}
+
+.wiki-private-card .connect-actions {
+  padding-top: 10px;
 }
 
 .connect-card h2,
