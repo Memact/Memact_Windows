@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "description": "Memact web portal for apps, users, consent, API keys, Wiki, and Playground features.",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "BUSL-1.1", 
   "type": "module",
   "repository": {
     "type": "git",
